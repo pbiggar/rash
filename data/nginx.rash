@@ -1,0 +1,256 @@
+#!/bin/env rash
+# https://github.com/hhoover/lazyscripts/blob/master/modules/nginx.sh
+# Installs Nginx as a webserver with php-fpm
+# Author: James Dewey
+
+
+# Check for OS and set needed stuff:
+def find_OS() {
+  $rhrelease="/etc/redhat-release"
+
+  if (and (not file.exists? $rhrelease))
+      (= "Ubuntu" (`lsb_release -d` | string.lines 1 | string.words 2)))
+    return "ubuntu"
+
+  if (and (not (file.exists? $rhrelease))
+      (= "10.04" (`lsb_release -r`
+                  | string.lines 1
+                  | regex.match "Release:\s+(.*)"
+                  | first))):
+    sys.echo "Nginx Installer is not supported on ubuntu 10.04 due to not having PHP-FPM available in the repo."
+    sys.exit 0
+
+
+  if (and (file.exists? rhrelease)
+      (= "CentOS" (file.read $rhrelease | string.words 1))):
+    if (file.read $rhrelease | string.words 3 | string.starts_with "5.")
+      return "cent5"
+    if (file.read $rhrelease | string.words 3 | string.starts_with "6.")
+      return "cent6"
+
+  if (and (file.exists? $rhrelease)
+      (= ["Red" "Hat"] (file.read $rhrelease | string.words | coll.range 1 2)))
+
+    if (file.read $rhrelease | string.words 7 | string.starts_with "5."):
+      return "rh5"
+
+    if (file.read $rhrelease | string.words 7 | string.starts_with "6."):
+      return "rh6"
+
+
+	echo "Unsupported OS detected, this script will now exit."
+  exit 0
+}
+
+
+# Check for Repo
+
+function repo_exists?($OS)
+{
+ if $OS == "ubuntu"
+   return `grep -Ri "nginx" /etc/apt` | proc.success?
+ else
+   return `grep -Ri "nginx" /etc/yum.repos.d` | proc.success?
+}
+
+# Set up Repo
+function create_repo($OS) {
+	if $OS == "ubuntu":
+		file.append "/etc/apt/sources.list"
+"""
+# Nginx Repo
+deb http://nginx.org/packages/ubuntu/ lucid nginx
+deb-src http://nginx.org/packages/ubuntu/ lucid nginx
+"""
+	else
+		$VERSION={"cent5" "centos/5"
+							"cent6" "centos/6"
+							"rh5" "rhel/5"
+							"rh6" "rhel/6"}[$OS]
+		file.append "/etc/yum.repos.d/nginx.repo"
+"""
+[nginx]
+name=nginx repo
+baseurl=http://nginx.org/packages/$VERSION/\$basearch/
+gpgcheck=0
+enabled=1
+"""
+}
+
+
+
+#Check for repo and add if needed.
+echo "Checking if Nginx Repo exists..."
+$OS=find_OS
+if repo_exists? ($OS)
+	echo "Repo not found, adding to configuration."
+	create_repo $OS
+else
+	echo "Repo Already Exists, no changes made."
+fi
+
+
+# Disable apache.
+echo "Stopping Apache and disabling it on boot.."
+`monit stop apache` | proc.stderr
+`monit unmonitor apache` | proc.stderr
+if $OS == "ubuntu":
+	`service apache2 stop` | proc.stderr
+	`update-rc.d apache2 disable` | proc.stderr
+else:
+	`service httpd stop` | proc.stderr
+	`chkconfig httpd off` | proc.stderr
+
+
+# Check for if Nginx is installed
+echo "Checking for existing nginx installation..."
+if $OS == "ubuntu":
+	$NGINXINSTALLED=`dpkg -l | grep -i nginx` | proc.success?
+else:
+  $NGINXINSTALLED=`rpm-qa | grep -i nginx` | proc.success?
+if not $NGINXINSTALLED:
+  echo "Nginx is already installed, remove it and try the installation again."
+	exit 0
+
+
+
+# Install Nginx
+echo "Installing Nginx..."
+if $OS == "ubuntu"
+	`gpg --keyserver pgpkeys.mit.edu --recv-key  ABF5BD827BD9BF62` | proc.stderr
+	`gpg -a --export ABF5BD827BD9BF62 | sudo apt-key add -` | proc.stderr
+	`apt-get update` | proc.stderr
+	`apt-get -y install nginx` | proc.stderr
+else:
+	`yum -y install nginx` | proc.stderr
+
+
+# Set up nginx configurations for vhosts + default vhost + php-fpm
+file.mkdir /var/www/vhosts/
+file.mkdir /var/www/vhosts/default
+file.mkdir /etc/nginx/vhost.d
+
+file.read "/etc/nginx/nginx.conf" | string.range -1 | string.append "include /etc/nginx/vhost.d/*.conf\n }" | file.write "/etc/nginx.conf"
+
+file.write "/etc/nginx/vhost.d/default.conf" """
+server {
+	listen  80 default_server;
+
+	server_name _;
+
+	access_log  /var/log/nginx/access.log;
+	error_log   /var/log/nginx/error.log error;
+
+	location / {
+		root   /var/www/vhosts/default;
+		index  index.php index.html index.htm;
+
+	}
+
+	location ~ \.php$ {
+		fastcgi_pass   php5-fpm-sock;
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME  /var/www/vhosts/default$fastcgi_script_name;
+		include fastcgi_params;
+	}
+
+}
+"""
+
+
+file.write "/etc/nginx/vhost.d/default.template"
+"""server {
+	listen 80;
+
+	#Uncomment this to make it bind to a specific IP/port (Such as for SSL)
+	#listen 12.34.56.78:443;
+
+	#Comment this out if you uncomment server_name below
+	server_name www.example.com example.com;
+
+	#Uncomment the first line for www->nonwww redirects, the second one for nonwww->www redirects
+	#server_name example.com;
+	#server_name www.example.com;
+
+	#Uncomment this for SSL support
+	#ssl on;
+	#ssl_certificate /path/to/cert;
+	#ssl_certificate_key /path/to/key;
+	#ssl_client_certificate /path/to/CAcert;
+
+
+	access_log /var/log/nginx/example.com.access.log;
+	error_log /var/log/nginx/example.com.error.log error;
+
+	location / {
+		root /var/www/vhosts/example.com;
+		index index.php index.html index.html;
+	}
+
+	location ~\.php$ {
+		fastcgi_pass   php5-fpm-sock;
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME  /var/www/vhosts/example.com$fastcgi_script_name;
+		include fastcgi_params;
+	}
+
+	#Comment this out to rewrite www to non-www.
+	#server {
+	#listen 80;
+	#server_name www.example.com;
+	#rewrite ^ http://example.com$request_uri? permanent;
+	#}
+
+	#Comment this out to rewrite nonwww to www.
+	#server {
+	#listen 80;
+	#server_name example.com
+	#rewrite ^ http://www.example.com$request_uri? permanent;
+	#}
+"""
+
+
+
+
+file.write "/etc/nginx/conf.d/php.conf"
+"""upstream php5-fpm-sock {
+	server unix:/var/run/php5-fpm.sock;
+}"""
+
+
+
+# check that php-fpm isn't alreadu installed
+echo "Checking for current PHP-FPM..."
+if $OS == "ubuntu":
+	FPMINSTALLED=`dpkg -l | grep -i php-fpm` | proc.success?
+else:
+  FPMINSTALLED=`rpm -qa | grep php53u-fpm` | proc.success?
+
+
+# install PHP-FPM and make it listen on a UNIX socket instead of TCP.
+echo "Setting up PHP-FPM..."
+if not $FPMINSTALLED:
+  if $OS == "ubuntu":
+  	`apt-get -y install php5-fpm` | proc.trace :stderr
+  	`sed -i 's_listen\ =\ .*_listen = /var/run/php5-fpm.sock_' /etc/php5/fpm/pool.d/www.conf` | proc.trace :stderr
+  elif $OS in ["cent5" "rh5"]:
+ 		`yum -y install php53u-fpm | proc.trace :stderr
+  	`sed -i 's_listen\ =\ .*_listen = /var/run/php5-fpm.sock_' /etc/php-fpm.d/www.conf` | proc.trace :stderr
+  else
+		# we need to remove old php, as it doesn't have FPM, and install php53u.
+		`yum -y remove php php-* | proc.stderr
+    `yum -y install php53u-fpm php53u-suhosin php53u-pear php53u-pecl-apc php53u-pdo php53u-xml php53u-gd php53u-mbstring php53u-mcrypt php53u-mysql` | proc.stderr
+    `sed -i 's_listen\ =\ .*_listen = /var/run/php5-fpm.sock_' /etc/php-fpm.d/www.conf` | proc.stderr
+
+# Start things and set to start on boot.
+echo "Making it start on boot, and starting services..."
+service nginx restart | proc.stderr
+service php5-fpm restart | proc.stderr
+if $OS == "ubuntu":
+	update-rc.d nginx enable | proc.stderr
+	update-rc.d php5-fpm enable | proc.stderr
+else:
+	chkconfig nginx on | proc.stderr
+	chkconfig php-fpm on | proc.stderr
+
+echo "Nginx and PHP-FPM setup complete."
