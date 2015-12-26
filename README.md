@@ -12,6 +12,7 @@ Rash was created after frustration with trying to create a set of readable and w
 - passing around data is complex
 
 
+
 Major goals
 +++++++++++++++++++
 
@@ -90,4 +91,42 @@ non-goals
 - to be synctically similar to bash (as bash did to sh)
 - to stick strictly to unixisms such as "do one thing well"
 - to be useful for large programs
+ - to have a standard library
 - to compete with python, perl, ruby, node, etc
+- to be "pure" in some sense (eg a lovely functional language)
+
+
+Language notes
+++++++++++++++++++++
+- execute external procs with ``
+ - returns map
+ - stdout and stderr are streams
+ - exit code is a promise of a value, will block until execution
+ - if operated on using string functions, refers to stdout
+- awk: file.read | string.words 3
+- regex.match returns list of values
+- use pipes liberally for composing functions
+- string functions all work on streams. no non-stream operations
+ - warning when something function appears to cause blocking a stream
+- vars start with $ sign
+- statically verify all types
+- true and false types - dont use 0/non-zero
+- proc.success? instead of checking for zero
+- functions receive params as values.
+ - string values are really streams with a known input
+- can we prevent globals entirely?
+- exitcode type?
+- should we allow returning values? procs cant do that. Should functions == procs?
+ - if we assume there is a return value, how do we choose between stdout and exitcode for procs
+- the whole point of bash is that the executed functions have their stdout output
+- how to put infix functions within a pipe. Maybe *equal as (==) is not readable.
+- let string, arrays, hastables, collections, proc and int have methods, which are the same as piping to string.whatever, arguments using ()
+- normally a function returns the output, which then goes into the caller's output, and so on. Do the same here.
+-
+
+
+TODO
+++++++++++++++++++++
+- what to do for unset variables?
+ - dont want to have a maybe type
+- translate some scripts
