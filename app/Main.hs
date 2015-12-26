@@ -1,6 +1,7 @@
 module Main where
 
-import Lib
+import TranslateBash
+import Parser
 
 main :: IO ()
-main = someFunc
+main = translate "string"

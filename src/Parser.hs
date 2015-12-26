@@ -1,5 +1,5 @@
-module Lib
-    ( someFunc
+module Parser
+    ( parseGrades
     ) where
 
 
@@ -77,8 +77,8 @@ mainparser = m_whiteSpace >> stmtparser <* eof
                      ; return (While b p)
                      }
 
-someFunc :: IO ()
-someFunc = do
+parseGrades :: IO ()
+parseGrades = do
   src <- readFile "grades"
   case parse mainparser "" src of
     { Left err -> print err
