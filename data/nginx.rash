@@ -48,9 +48,9 @@ def find_OS() {
 function repo_exists?($OS)
 {
  if $OS == "ubuntu"
-   return `grep -Ri "nginx" /etc/apt` | proc.success?
+   return `grep -Ri "nginx" /etc/apt`.success?
  else
-   return `grep -Ri "nginx" /etc/yum.repos.d` | proc.success?
+   return `grep -Ri "nginx" /etc/yum.repos.d`.success?
 }
 
 # Set up Repo
@@ -82,7 +82,7 @@ enabled=1
 #Check for repo and add if needed.
 echo "Checking if Nginx Repo exists..."
 $OS=find_OS
-if repo_exists? ($OS)
+if repo_exists? $OS
 	echo "Repo not found, adding to configuration."
 	create_repo $OS
 else
@@ -92,22 +92,22 @@ fi
 
 # Disable apache.
 echo "Stopping Apache and disabling it on boot.."
-`monit stop apache` | proc.stderr
-`monit unmonitor apache` | proc.stderr
+`monit stop apache`.stderr
+`monit unmonitor apache`.stderr
 if $OS == "ubuntu":
-	`service apache2 stop` | proc.stderr
-	`update-rc.d apache2 disable` | proc.stderr
+	`service apache2 stop`.stderr
+	`update-rc.d apache2 disable`.stderr
 else:
-	`service httpd stop` | proc.stderr
-	`chkconfig httpd off` | proc.stderr
+	`service httpd stop`.stderr
+	`chkconfig httpd off`.stderr
 
 
 # Check for if Nginx is installed
 echo "Checking for existing nginx installation..."
 if $OS == "ubuntu":
-	$NGINXINSTALLED=`dpkg -l | grep -i nginx` | proc.success?
+	$NGINXINSTALLED=`dpkg -l | grep -i nginx`.success?
 else:
-  $NGINXINSTALLED=`rpm-qa | grep -i nginx` | proc.success?
+  $NGINXINSTALLED=`rpm-qa | grep -i nginx`.success?
 if not $NGINXINSTALLED:
   echo "Nginx is already installed, remove it and try the installation again."
 	exit 0
@@ -117,12 +117,12 @@ if not $NGINXINSTALLED:
 # Install Nginx
 echo "Installing Nginx..."
 if $OS == "ubuntu"
-	`gpg --keyserver pgpkeys.mit.edu --recv-key  ABF5BD827BD9BF62` | proc.stderr
-	`gpg -a --export ABF5BD827BD9BF62 | sudo apt-key add -` | proc.stderr
-	`apt-get update` | proc.stderr
-	`apt-get -y install nginx` | proc.stderr
+	`gpg --keyserver pgpkeys.mit.edu --recv-key  ABF5BD827BD9BF62`.stderr
+	`gpg -a --export ABF5BD827BD9BF62 | sudo apt-key add -`.stderr
+	`apt-get update`.stderr
+	`apt-get -y install nginx`.stderr
 else:
-	`yum -y install nginx` | proc.stderr
+	`yum -y install nginx`.stderr
 
 
 # Set up nginx configurations for vhosts + default vhost + php-fpm
@@ -130,7 +130,7 @@ file.mkdir /var/www/vhosts/
 file.mkdir /var/www/vhosts/default
 file.mkdir /etc/nginx/vhost.d
 
-file.read "/etc/nginx/nginx.conf" | string.range -1 | string.append "include /etc/nginx/vhost.d/*.conf\n }" | file.write "/etc/nginx.conf"
+file.read("/etc/nginx/nginx.conf").range(-1).append("include /etc/nginx/vhost.d/*.conf\n }") | file.write "/etc/nginx.conf"
 
 file.write "/etc/nginx/vhost.d/default.conf" """
 server {
@@ -222,16 +222,16 @@ file.write "/etc/nginx/conf.d/php.conf"
 # check that php-fpm isn't alreadu installed
 echo "Checking for current PHP-FPM..."
 if $OS == "ubuntu":
-	FPMINSTALLED=`dpkg -l | grep -i php-fpm` | proc.success?
+	FPMINSTALLED=`dpkg -l | grep -i php-fpm`.success?
 else:
-  FPMINSTALLED=`rpm -qa | grep php53u-fpm` | proc.success?
+  FPMINSTALLED=`rpm -qa | grep php53u-fpm`.success?
 
 
 # install PHP-FPM and make it listen on a UNIX socket instead of TCP.
 echo "Setting up PHP-FPM..."
 if not $FPMINSTALLED:
   if $OS == "ubuntu":
-  	`apt-get -y install php5-fpm` | proc.trace :stderr
+  	`apt-get -y install php5-fpm`.stderr
   	`sed -i 's_listen\ =\ .*_listen = /var/run/php5-fpm.sock_' /etc/php5/fpm/pool.d/www.conf` | proc.trace :stderr
   elif $OS in ["cent5" "rh5"]:
  		`yum -y install php53u-fpm | proc.trace :stderr
@@ -244,13 +244,13 @@ if not $FPMINSTALLED:
 
 # Start things and set to start on boot.
 echo "Making it start on boot, and starting services..."
-service nginx restart | proc.stderr
-service php5-fpm restart | proc.stderr
+`service nginx restart`.stderr
+`service php5-fpm restart`.stderr
 if $OS == "ubuntu":
-	update-rc.d nginx enable | proc.stderr
-	update-rc.d php5-fpm enable | proc.stderr
+	`update-rc.d nginx enable`.stderr
+	`update-rc.d php5-fpm enable`.stderr
 else:
-	chkconfig nginx on | proc.stderr
-	chkconfig php-fpm on | proc.stderr
+	`chkconfig nginx on`.stderr
+	`chkconfig php-fpm on`.stderr
 
 echo "Nginx and PHP-FPM setup complete."
