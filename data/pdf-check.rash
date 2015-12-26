@@ -1,0 +1,45 @@
+#!/usr/bin/env rash
+# https://raw.githubusercontent.com/mxdpeep/linux-bash-scripts/master/pdf-check.sh
+# Author: Fred Brooker <original@fredbrooker.cz>
+# URL: http://fredbrooker.cz/
+
+
+if sys.argc == 0:
+  echo "\nCheck validity of PDF files recursively.\n\nSyntax: ${sys.argv[0] | basename} <folder>\n"
+  exit 1
+
+if (sys.argv[1] | string.length | x > 0) and file.directory? sys.argv[1]:
+  sys.chdir sys.argv[1]
+ else:
+  echo -e "Invalid folder: $1\n"
+  exit 1
+
+
+# check for installed app
+if not os.on_path? "pdfinfo":
+  echo "Installing xpdf-utils package..."
+  `sudo apt-get install xpdf-utils`
+
+if not os.on_path? "pdfinfo":
+  echo "Xpdf-utils are not installed!\n"
+  exit 1
+
+
+function check_pdf ($file) {
+  echo "Checking: {$file}"
+  if `/usr/bin/pdfinfo $file` | proc.success? | *not:
+    echo "Invalid PDF file: {$file}"
+    file.move $file (string.append "invalid-pdf-" $file)
+
+function check_directory ($dir) {
+  for $file in sys.dir_contents $dir:
+    if file.directory? $file:
+      check_directory $file
+    if file.suffix $file | == "pdf":
+      check_pdf $file
+}
+
+os.sync
+
+echo "\nDone.\n"
+exit 0
