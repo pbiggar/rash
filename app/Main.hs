@@ -1,7 +1,9 @@
 module Main where
 
+import System.Environment
 import TranslateBash
-import Parser
 
 main :: IO ()
-main = translate "string"
+main = do
+  (script:_) <- getArgs
+  translate script

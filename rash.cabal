@@ -21,6 +21,9 @@ library
                      , text
                      , parsec
                      , language-bash
+                     , pcre-heavy
+                     , groom
+                     , MissingH
   default-language:    Haskell2010
 
 executable rash-exe
