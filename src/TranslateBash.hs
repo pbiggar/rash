@@ -29,23 +29,28 @@ prettify s = simplifyWords . simplifyDouble . toCharFinal . toChar $ s
 debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
 debug x reason = Debug ("TODO: " ++ reason) (BashPretty.prettyText x) (prettify (show x))
 
-debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> Expr
-debugWithType x = debug x (show (Typeable.typeOf x))
+debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
+debugWithType x reason = debug x (reason ++ (show (Typeable.typeOf x)))
 
 data Program = Program Expr deriving (Show)
 data Expr = Command
             | If Expr Expr Expr
             | And Expr Expr
             | Or Expr Expr
+            | Concat [Expr]
+            | Equals Expr Expr
             | FunctionInvocation String [Expr]
             | Not Expr
+            | Shellout String -- TODO: we need to parse this string in some cases
+            | Str String
             | Debug String String String
             | List [Expr] -- the last one is the true value
               deriving (Show)
 
 convertList :: S.List -> Expr
 -- TODO: ignoring pipeline args
-convertList (S.List stmts) = List (map (\(S.Statement x _) -> (convertAndOr x)) stmts)
+convertList (S.List stmts) =
+    List [ convertAndOr x | (S.Statement x _) <- stmts ]
 
 convertAndOr :: S.AndOr -> Expr
 convertAndOr (S.Last p) = convertPipeline p
@@ -53,10 +58,11 @@ convertAndOr (S.And p ao) = And (convertPipeline p) (convertAndOr ao)
 convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
 
 convertPipeline :: S.Pipeline -> Expr
+-- TODO: redirs ignored
 convertPipeline (S.Pipeline _ _ _ cs) =
-    (List (map convertCommand scs))
-    -- TODO: redirs ignored
-    where scs = map (\(S.Command sc _) -> sc) cs
+    List [ convertCommand sc | (S.Command sc _) <- cs ]
+
+
 
 
 convertCommand :: S.ShellCommand -> Expr
@@ -70,13 +76,39 @@ convertCommand (S.If cond l1 (Just l2)) = If
                                           (convertList l1)
                                           (convertList l2)
 
--- test
 convertCommand (S.SimpleCommand [] ws) = convertWords ws
+convertCommand x = debugWithType x "cc"
 
-convertCommand x = debugWithType x
 
 convertWords :: [W.Word] -> Expr
-convertWords ws = debugWithType ws
+convertWords a@(w:ws)
+    | w == [W.Char '['] && (last ws) == [W.Char ']'] = convertTest . init $ ws
+    | otherwise = debugWithType a "cw"
+
+
+convertTest :: [W.Word] -> Expr
+convertTest t@(w:ws)
+    | w == [(W.Char '!')] = Not (convertTest ws)
+    | w == [(W.Char '-'), (W.Char 'a')] = FunctionInvocation "file.exists?" (map convertWord ws)
+    | length t == 3 = convertBinaryTest t
+    | otherwise = debugWithType t "ct"
+
+convertBinaryTest :: [W.Word] -> Expr
+convertBinaryTest t@(l:op:r:[])
+    | op == [(W.Char '='), (W.Char '=')] = Equals (convertWord l) (convertWord r)
+    | otherwise = debugWithType t "cbt"
+
+
+convertWord :: W.Word -> Expr
+convertWord (s:[]) = convertSpan s
+convertWord ss = cConcat [convertSpan s | s <- ss]
+
+convertSpan :: W.Span -> Expr
+convertSpan (W.Char c) = Str [c]
+convertSpan (W.Double w) = cConcat [(convertWord w)]
+convertSpan (W.CommandSubst c) = Shellout c
+convertSpan w = debugWithType w "cs"
+
 
 -- clean up and optimize and cononicalize things that have been converted poorly
 tidyProgram :: Program -> Program
@@ -85,6 +117,20 @@ tidyProgram (Program e) = Program (tidyExpr e)
 tidyExpr :: Expr -> Expr
 tidyExpr (List (e:[])) = e -- one element lists
 tidyExpr e = e
+
+
+foldStrs :: [Expr] -> [Expr]
+foldStrs ((Str a) : (Str b) : ss) = foldStrs ((Str (a ++ b)) : ss)
+foldStrs ss = ss
+
+cConcat :: [Expr] -> Expr
+cConcat es = cConcat0 (foldStrs es)
+
+cConcat0 :: [Expr] -> Expr
+cConcat0 (e:[]) = e
+cConcat0 es = Concat es
+
+
 
 
 translate :: String -> IO ()
