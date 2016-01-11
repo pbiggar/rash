@@ -58,7 +58,12 @@ data LValue = Variable String
 convertList :: S.List -> Expr
 -- TODO: ignoring pipeline args
 convertList (S.List stmts) =
-    List [ convertAndOr x | (S.Statement x _) <- stmts ]
+    listOrExpr [ convertAndOr x | (S.Statement x _) <- stmts ]
+
+listOrExpr :: [Expr] -> Expr
+listOrExpr (e : []) = e
+listOrExpr es = List es
+
 
 convertAndOr :: S.AndOr -> Expr
 convertAndOr (S.Last p) = convertPipeline p
@@ -68,7 +73,7 @@ convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
 convertPipeline :: S.Pipeline -> Expr
 -- TODO: redirs ignored
 convertPipeline (S.Pipeline _ _ _ cs) =
-    List [ convertCommand sc | (S.Command sc _) <- cs ]
+    listOrExpr [ convertCommand sc | (S.Command sc _) <- cs ]
 
 
 
@@ -77,7 +82,7 @@ convertCommand :: S.ShellCommand -> Expr
 convertCommand (S.If cond l1 Nothing) = If
                                         (convertList cond)
                                         (convertList l1)
-                                        (List []) -- TODO: is Maybe nicer here?
+                                        (listOrExpr []) -- TODO: is Maybe nicer here?
 
 convertCommand (S.If cond l1 (Just l2)) = If
                                           (convertList cond)
