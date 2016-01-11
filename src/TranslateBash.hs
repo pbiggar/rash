@@ -34,7 +34,7 @@ debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
 debug x reason = Debug (debugStr x reason)
 
 debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
-debugWithType x reason = debug x (reason ++ (show (Typeable.typeOf x)))
+debugWithType x reason = debug x (reason ++ " " ++ (show (Typeable.typeOf x)))
 
 data Program = Program Expr deriving (Show)
 data Expr = Command
@@ -43,6 +43,8 @@ data Expr = Command
             | Or Expr Expr
             | Concat [Expr]
             | Equals Expr Expr
+            | LessThan Expr Expr
+            | GreaterThan Expr Expr
             | FunctionInvocation String [Expr]
             | Not Expr
             | Shellout String -- TODO: we need to parse this string in some cases
@@ -96,15 +98,62 @@ convertCommand (S.SimpleCommand [] ws) = convertWords ws
 -- TODO: doesn't handle multiple assignment
 convertCommand (S.SimpleCommand [(S.Assign (W.Parameter name _) S.Equals (S.RValue r))] _) =
     Assignment (Variable name) (convertWord r)
+convertCommand (S.Cond e) = convertCondExpr e
 convertCommand x = debugWithType x "cc"
+
+convertCondExpr :: C.CondExpr W.Word -> Expr
+convertCondExpr (C.Not e) = Not (convertCondExpr e)
+convertCondExpr (C.Unary uop w) =
+    FunctionInvocation (unaryOpFunctionName uop) [convertWord w]
+convertCondExpr (C.Binary l C.StrEQ r) = Equals (convertWord l) (convertWord r)
+convertCondExpr (C.Binary l C.ArithEQ r) = Equals (convertWord l) (convertWord r)
+convertCondExpr (C.Binary l C.StrNE r) = Not (Equals (convertWord l) (convertWord r))
+convertCondExpr (C.Binary l C.ArithNE r) = Not (Equals (convertWord l) (convertWord r))
+convertCondExpr (C.Binary l C.StrLT r) = LessThan (convertWord l) (convertWord r)
+convertCondExpr (C.Binary l C.ArithLT r) = LessThan (convertWord l) (convertWord r)
+convertCondExpr (C.Binary l C.StrGT r) = GreaterThan (convertWord l) (convertWord r)
+convertCondExpr (C.Binary l C.ArithLE r) = Not (GreaterThan (convertWord l) (convertWord r))
+convertCondExpr (C.Binary l C.ArithGE r) = Not (LessThan (convertWord l) (convertWord r))
+
+
+convertCondExpr e = debugWithType e "ceEmpty"
+
+
+unaryOpFunctionName :: C.UnaryOp -> String
+unaryOpFunctionName C.BlockFile = "file.isBlockFile"
+unaryOpFunctionName C.CharacterFile = "file.isCharacterFile"
+unaryOpFunctionName C.Directory = "file.isDirectory"
+unaryOpFunctionName C.FileExists = "file.exists?"
+unaryOpFunctionName C.RegularFile = "file.isRegularFile"
+unaryOpFunctionName C.SetGID = "file.isSetGID"
+unaryOpFunctionName C.Sticky = "file.isSticky"
+unaryOpFunctionName C.NamedPipe = "file.isNamedPipe"
+unaryOpFunctionName C.Readable = "file.isReadable"
+unaryOpFunctionName C.FileSize = "file.isFileSize"
+unaryOpFunctionName C.Terminal = "file.isTerminal"
+unaryOpFunctionName C.SetUID = "file.isSetUID"
+unaryOpFunctionName C.Writable = "file.isWritable"
+unaryOpFunctionName C.Executable = "file.isExecutable"
+unaryOpFunctionName C.GroupOwned = "file.isGroupOwned"
+unaryOpFunctionName C.SymbolicLink = "file.isSymbolicLink"
+unaryOpFunctionName C.Modified = "file.isModified"
+unaryOpFunctionName C.UserOwned = "file.isUserOwned"
+unaryOpFunctionName C.Socket = "file.isSocket"
+unaryOpFunctionName a = debugStr (show a) "unaryOpFunctionName"
+-- TODO: these ones are a bit odd
+-- unaryOpFunctionName Optname =
+-- unaryOpFunctionName Varname =
+-- unaryOpFunctionName ZeroString =
+-- unaryOpFunctionName NonzeroString =
 
 
 convertWords :: [W.Word] -> Expr
+convertWords (w:[]) = convertWord w
 convertWords ws@[] = debugWithType ws "cwEmpty"
-convertWords a@(w:ws)
-    | w == [W.Char '['] && (last ws) == [W.Char ']'] = convertTest . init $ ws
+convertWords a@([(W.Char '[' )]:ws)
+    | (last ws) == [W.Char ']'] = convertTest . init $ ws
     | otherwise = debugWithType a "cw"
-
+convertWords ws = debugWithType ws "cwUnimplemented"
 
 convertTest :: [W.Word] -> Expr
 convertTest ws = case condExpr of
@@ -137,6 +186,7 @@ hackTestExpr ws = ws
 -- parseTestExpr gives a CondExpr string, not a CondExpr Word
 convertStrCondExpr2WordCondExpr :: C.CondExpr String -> C.CondExpr W.Word
 convertStrCondExpr2WordCondExpr = csce2wce
+csce2wce :: C.CondExpr String -> C.CondExpr W.Word
 csce2wce (C.Unary uop a) = C.Unary uop (W.fromString a)
 csce2wce (C.Binary a bop b) = C.Binary (W.fromString a) bop (W.fromString b)
 csce2wce (C.Not a) = C.Not (csce2wce a)
