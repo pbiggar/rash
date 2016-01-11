@@ -26,8 +26,11 @@ prettify s = simplifyWords . simplifyDouble . toCharFinal . toChar $ s
                                    . (U.replace "SimpleCommand" "SC")
                                    . (U.replace "{timed = False, timedPosix = False, inverted = False, " "{")
 
+debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
+debugStr x reason = "TODO (" ++ reason ++ ") - " ++ (BashPretty.prettyText x) ++ " - " ++ (prettify (show x))
+
 debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
-debug x reason = Debug ("TODO: " ++ reason) (BashPretty.prettyText x) (prettify (show x))
+debug x reason = Debug (debugStr x reason)
 
 debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
 debugWithType x reason = debug x (reason ++ (show (Typeable.typeOf x)))
@@ -43,8 +46,12 @@ data Expr = Command
             | Not Expr
             | Shellout String -- TODO: we need to parse this string in some cases
             | Str String
-            | Debug String String String
+            | Assignment LValue Expr
+            | Debug String
             | List [Expr] -- the last one is the true value
+              deriving (Show)
+
+data LValue = Variable String
               deriving (Show)
 
 convertList :: S.List -> Expr
@@ -77,26 +84,30 @@ convertCommand (S.If cond l1 (Just l2)) = If
                                           (convertList l2)
 
 convertCommand (S.SimpleCommand [] ws) = convertWords ws
+-- TODO: parameter doesn't take subscript
+-- TODO: assignment doesn't handle +=
+-- TODO: what are the rest of the words doing here?
+-- TODO: doesn't handle multiple assignment
+convertCommand (S.SimpleCommand [(S.Assign (W.Parameter name _) S.Equals (S.RValue r))] _) =
+    Assignment (Variable name) (convertWord r)
 convertCommand x = debugWithType x "cc"
 
 
 convertWords :: [W.Word] -> Expr
+convertWords ws@[] = debugWithType ws "cwEmpty"
 convertWords a@(w:ws)
     | w == [W.Char '['] && (last ws) == [W.Char ']'] = convertTest . init $ ws
     | otherwise = debugWithType a "cw"
 
 
 convertTest :: [W.Word] -> Expr
-convertTest t@(w:ws)
-    | w == [(W.Char '!')] = Not (convertTest ws)
-    | w == [(W.Char '-'), (W.Char 'a')] = FunctionInvocation "file.exists?" (map convertWord ws)
-    | length t == 3 = convertBinaryTest t
-    | otherwise = debugWithType t "ct"
+convertTest ws = case condExpr of
+    Left  err -> Debug $ "doesn't parse" ++ (show err) ++ (show hacked)
+    Right e -> (convertCommand (S.Cond (convertStrCondExpr2WordCondExpr e)))
+    where condExpr = C.parseTestExpr hacked
+          hacked = hackTestExpr strs
+          strs = (map W.unquote ws)
 
-convertBinaryTest :: [W.Word] -> Expr
-convertBinaryTest t@(l:op:r:[])
-    | op == [(W.Char '='), (W.Char '=')] = Equals (convertWord l) (convertWord r)
-    | otherwise = debugWithType t "cbt"
 
 
 convertWord :: W.Word -> Expr
