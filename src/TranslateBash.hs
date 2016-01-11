@@ -7,6 +7,7 @@ module TranslateBash
 import qualified Language.Bash.Parse as BashParse
 import qualified Language.Bash.Syntax as S
 import qualified Language.Bash.Word as W
+import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
@@ -119,6 +120,23 @@ convertSpan (W.Char c) = Str [c]
 convertSpan (W.Double w) = cConcat [(convertWord w)]
 convertSpan (W.CommandSubst c) = Shellout c
 convertSpan w = debugWithType w "cs"
+
+
+-- break the bash rules to fix up mistakes
+hackTestExpr :: [String] -> [String]
+-- [ -a asd ] works, but [ ! -a asd] doesnt because -a is the "and" operator. -e does the same though.
+hackTestExpr ("!" : "-a" : ws) = ("!" : "-e" : ws)
+hackTestExpr ws = ws
+
+
+-- parseTestExpr gives a CondExpr string, not a CondExpr Word
+convertStrCondExpr2WordCondExpr :: C.CondExpr String -> C.CondExpr W.Word
+convertStrCondExpr2WordCondExpr = csce2wce
+csce2wce (C.Unary uop a) = C.Unary uop (W.fromString a)
+csce2wce (C.Binary a bop b) = C.Binary (W.fromString a) bop (W.fromString b)
+csce2wce (C.Not a) = C.Not (csce2wce a)
+csce2wce (C.And a b) = C.And (csce2wce a) (csce2wce b)
+csce2wce (C.Or a b) = C.Or (csce2wce a) (csce2wce b)
 
 
 -- clean up and optimize and cononicalize things that have been converted poorly
