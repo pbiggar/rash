@@ -233,6 +233,7 @@ csce2wce (C.Or a b) = C.Or (csce2wce a) (csce2wce b)
 
 foldStrs :: [Expr] -> [Expr]
 foldStrs ((Str a) : (Str b) : ss) = foldStrs ((Str (a ++ b)) : ss)
+foldStrs (s : ss) = (s : foldStrs ss)
 foldStrs ss = ss
 
 cConcat :: [Expr] -> Expr
@@ -257,7 +258,9 @@ cConcat0 es = Concat es
 -- - $#, $1, etc
 -- - nullglob and dotglob
 -- - getopts
--- - set -e - how to allow failure to be handled well? Exceptions?
+-- - set -e - how to allow failure to be handled well? Exceptions? We currently
+-- - just rip them out
+
 
 -- replace shell utilities that are tricku to use
 -- - awk
