@@ -11,24 +11,11 @@ import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
-import qualified Text.Regex.PCRE.Heavy as RE
-import qualified Data.List.Utils as U
-
-prettify :: String -> String
-prettify s = simplifyWords . simplifyDouble . toCharFinal . toChar $ s
-             where toChar = RE.gsub [RE.re|Char '([^']+)',|] (\(x:_) -> x :: String)
-                   toCharFinal = RE.gsub [RE.re|Char '([^']+)'|] (\(x:_) -> x :: String)
-                   simplifyDouble = RE.gsub [RE.re|Double \[(.*?)\]|] (\(x:_) -> "\"" ++ (x :: String) ++ "\"")
-                   simplifyWords = (U.replace "List" "L")
-                                   . (U.replace "Statement" "S")
-                                   . (U.replace "Pipeline" "P")
-                                   . (U.replace "Sequential" "Seq")
-                                   . (U.replace "Command" "C")
-                                   . (U.replace "SimpleCommand" "SC")
-                                   . (U.replace "{timed = False, timedPosix = False, inverted = False, " "{")
+--import qualified Text.Regex.PCRE.Heavy as RE
+--import qualified Data.List.Utils as U
 
 debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
-debugStr x reason = "TODO (" ++ reason ++ ") - " ++ (BashPretty.prettyText x) ++ " - " ++ (prettify (show x))
+debugStr x reason = "TODO (" ++ reason ++ ") - " ++ (BashPretty.prettyText x) ++ " - " ++ (show x)
 
 debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
 debug x reason = Debug (debugStr x reason)
@@ -214,7 +201,23 @@ cConcat0 :: [Expr] -> Expr
 cConcat0 (e:[]) = e
 cConcat0 es = Concat es
 
-
+-- TODO:
+-- convert lists of echos into a single heredoc
+-- convert globals into params being passed around
+-- convert assignments of "0" and "1" into real bools
+-- parse DoubleQuoted strings
+-- find BASH_REMATCH and convert it into proper usage
+-- find duplicated code
+-- variable variables into hashtables
+-- turn bash RE into PCRE
+-- turn nested if/else into switches
+-- turn exit arg into a number
+-- parse awk into piped commands
+-- convert sed commands
+-- convert $# into arguments
+-- handle echo -e
+-- handle basename $0
+-- handle $1
 
 
 translate :: String -> IO ()
