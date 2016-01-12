@@ -33,15 +33,19 @@ data Expr = Command
             | LessThan Expr Expr
             | GreaterThan Expr Expr
             | FunctionInvocation String [Expr]
+            | FunctionDef String Expr
             | Not Expr
             | Shellout String -- TODO: we need to parse this string in some cases
             | Str String
+            | Variable String
             | Assignment LValue Expr
             | Debug String
             | List [Expr] -- the last one is the true value
               deriving (Show)
 
-data LValue = Variable String
+-- TODO: separate or combined definitions of Variables or LHS and RHS, and
+-- arrays and hashtables?
+data LValue = LVar String
               deriving (Show)
 
 convertList :: S.List -> Expr
@@ -84,14 +88,15 @@ convertCommand (S.SimpleCommand [] ws) = convertWords ws
 -- TODO: what are the rest of the words doing here?
 -- TODO: doesn't handle multiple assignment
 convertCommand (S.SimpleCommand [(S.Assign (W.Parameter name _) S.Equals (S.RValue r))] _) =
-    Assignment (Variable name) (convertWord r)
+    Assignment (LVar name) (convertWord r)
 convertCommand (S.Cond e) = convertCondExpr e
+convertCommand (S.FunctionDef name cmds) = FunctionDef name (convertList cmds)
 convertCommand x = debugWithType x "cc"
 
 convertCondExpr :: C.CondExpr W.Word -> Expr
 convertCondExpr (C.Not e) = Not (convertCondExpr e)
 convertCondExpr (C.Unary uop w) =
-    FunctionInvocation (unaryOpFunctionName uop) [convertWord w]
+    FunctionInvocation (uop2FunctionName uop) [convertWord w]
 convertCondExpr (C.Binary l C.StrEQ r) = Equals (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.ArithEQ r) = Equals (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.StrNE r) = Not (Equals (convertWord l) (convertWord r))
@@ -101,46 +106,52 @@ convertCondExpr (C.Binary l C.ArithLT r) = LessThan (convertWord l) (convertWord
 convertCondExpr (C.Binary l C.StrGT r) = GreaterThan (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.ArithLE r) = Not (GreaterThan (convertWord l) (convertWord r))
 convertCondExpr (C.Binary l C.ArithGE r) = Not (LessThan (convertWord l) (convertWord r))
+convertCondExpr (C.Binary l bop r) = FunctionInvocation (bop2FunctionName bop) [convertWord l, convertWord r]
 
 
 convertCondExpr e = debugWithType e "ceEmpty"
 
+bop2FunctionName :: C.BinaryOp -> String
+bop2FunctionName C.SameFile = "file.same?"
+bop2FunctionName C.NewerThan = "file.newer_than?"
+bop2FunctionName C.OlderThan = "file.older_than?"
+bop2FunctionName C.StrMatch = "re.matches"
+bop2FunctionName _ = "FAIL"
 
-unaryOpFunctionName :: C.UnaryOp -> String
-unaryOpFunctionName C.BlockFile = "file.isBlockFile"
-unaryOpFunctionName C.CharacterFile = "file.isCharacterFile"
-unaryOpFunctionName C.Directory = "file.isDirectory"
-unaryOpFunctionName C.FileExists = "file.exists?"
-unaryOpFunctionName C.RegularFile = "file.isRegularFile"
-unaryOpFunctionName C.SetGID = "file.isSetGID"
-unaryOpFunctionName C.Sticky = "file.isSticky"
-unaryOpFunctionName C.NamedPipe = "file.isNamedPipe"
-unaryOpFunctionName C.Readable = "file.isReadable"
-unaryOpFunctionName C.FileSize = "file.isFileSize"
-unaryOpFunctionName C.Terminal = "file.isTerminal"
-unaryOpFunctionName C.SetUID = "file.isSetUID"
-unaryOpFunctionName C.Writable = "file.isWritable"
-unaryOpFunctionName C.Executable = "file.isExecutable"
-unaryOpFunctionName C.GroupOwned = "file.isGroupOwned"
-unaryOpFunctionName C.SymbolicLink = "file.isSymbolicLink"
-unaryOpFunctionName C.Modified = "file.isModified"
-unaryOpFunctionName C.UserOwned = "file.isUserOwned"
-unaryOpFunctionName C.Socket = "file.isSocket"
-unaryOpFunctionName a = debugStr (show a) "unaryOpFunctionName"
+uop2FunctionName :: C.UnaryOp -> String
+uop2FunctionName C.BlockFile = "file.isBlockFile"
+uop2FunctionName C.CharacterFile = "file.isCharacterFile"
+uop2FunctionName C.Directory = "file.is_directory?"
+uop2FunctionName C.FileExists = "file.exists?"
+uop2FunctionName C.RegularFile = "file.is_regular_file?"
+uop2FunctionName C.SetGID = "file.isSetGID"
+uop2FunctionName C.Sticky = "file.isSticky"
+uop2FunctionName C.NamedPipe = "file.isNamedPipe"
+uop2FunctionName C.Readable = "file.isReadable"
+uop2FunctionName C.FileSize = "file.isFileSize"
+uop2FunctionName C.Terminal = "file.isTerminal"
+uop2FunctionName C.SetUID = "file.isSetUID"
+uop2FunctionName C.Writable = "file.isWritable"
+uop2FunctionName C.Executable = "file.isExecutable"
+uop2FunctionName C.GroupOwned = "file.isGroupOwned"
+uop2FunctionName C.SymbolicLink = "file.isSymbolicLink"
+uop2FunctionName C.Modified = "file.isModified"
+uop2FunctionName C.UserOwned = "file.isUserOwned"
+uop2FunctionName C.Socket = "file.isSocket"
+uop2FunctionName C.ZeroString = "string.blank?"
+uop2FunctionName C.NonzeroString = "string.nonblank?"
+uop2FunctionName a = debugStr (show a) "uop2FunctionName"
 -- TODO: these ones are a bit odd
--- unaryOpFunctionName Optname =
--- unaryOpFunctionName Varname =
--- unaryOpFunctionName ZeroString =
--- unaryOpFunctionName NonzeroString =
+-- uop2FunctionName C.Optname =
+-- uop2FunctionName C.Varname =
 
 
 convertWords :: [W.Word] -> Expr
-convertWords (w:[]) = convertWord w
 convertWords ws@[] = debugWithType ws "cwEmpty"
 convertWords a@([(W.Char '[' )]:ws)
     | (last ws) == [W.Char ']'] = convertTest . init $ ws
     | otherwise = debugWithType a "cw"
-convertWords ws = debugWithType ws "cwUnimplemented"
+convertWords (w:ws) = FunctionInvocation (convertString w) (map convertWord ws)
 
 convertTest :: [W.Word] -> Expr
 convertTest ws = case condExpr of
@@ -150,17 +161,26 @@ convertTest ws = case condExpr of
           hacked = hackTestExpr strs
           strs = (map W.unquote ws)
 
-
-
 convertWord :: W.Word -> Expr
-convertWord (s:[]) = convertSpan s
 convertWord ss = cConcat [convertSpan s | s <- ss]
 
 convertSpan :: W.Span -> Expr
 convertSpan (W.Char c) = Str [c]
-convertSpan (W.Double w) = cConcat [(convertWord w)]
+convertSpan (W.Double w) = cConcat [convertWord w]
+convertSpan (W.Single w) = cConcat [convertWord w]
 convertSpan (W.CommandSubst c) = Shellout c
+convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
+                                    W.parameter = (W.Parameter p Nothing)}))
+    = Variable p
+convertSpan (W.ParamSubst (W.Bare {W.parameter = (W.Parameter p Nothing)}))
+    = Variable p
 convertSpan w = debugWithType w "cs"
+
+-- like convertWord but we expect a string
+convertString :: W.Word -> String
+convertString w = case (convertWord w) of
+                    (Str s) -> s
+                    _ -> "TODO - couldnt get a string out of " ++ (show w)
 
 
 -- break the bash rules to fix up mistakes
