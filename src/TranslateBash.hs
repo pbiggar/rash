@@ -13,6 +13,7 @@ import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 --import qualified Text.Regex.PCRE.Heavy as RE
 --import qualified Data.List.Utils as U
+import qualified Data.Maybe as Maybe
 
 debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
 debugStr x reason = "TODO (" ++ reason ++ ") - " ++ (BashPretty.prettyText x) ++ " - " ++ (show x)
@@ -28,6 +29,7 @@ data Expr = Command
             | If Expr Expr Expr
             | And Expr Expr
             | Or Expr Expr
+            | Nop
             | Concat [Expr]
             | Equals Expr Expr
             | LessThan Expr Expr
@@ -54,7 +56,7 @@ convertList (S.List stmts) =
     listOrExpr [ convertAndOr x | (S.Statement x _) <- stmts ]
 
 listOrExpr :: [Expr] -> Expr
-listOrExpr (e : []) = e
+listOrExpr (e:[]) = e
 listOrExpr es = List es
 
 
@@ -64,34 +66,56 @@ convertAndOr (S.And p ao) = And (convertPipeline p) (convertAndOr ao)
 convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
 
 convertPipeline :: S.Pipeline -> Expr
--- TODO: redirs ignored
+-- ignored timing and inverted. I think this is right.
 convertPipeline (S.Pipeline _ _ _ cs) =
-    listOrExpr [ convertCommand sc | (S.Command sc _) <- cs ]
+    listOrExpr [ convertCommand sc rs | (S.Command sc rs) <- cs ]
 
 
+convertCommand :: S.ShellCommand -> [S.Redir] -> Expr
+convertCommand (S.If cond l1 Nothing) [] = If
+                                           (convertList cond)
+                                           (convertList l1)
+                                           (listOrExpr [Nop]) -- TODO: is Maybe nicer here?
+
+convertCommand (S.If cond l1 (Just l2)) [] = If
+                                             (convertList cond)
+                                             (convertList l1)
+                                             (convertList l2)
+
+convertCommand (S.SimpleCommand [] ws) rs = convertWords (combineHeredoc ws rs)
 
 
-convertCommand :: S.ShellCommand -> Expr
-convertCommand (S.If cond l1 Nothing) = If
-                                        (convertList cond)
-                                        (convertList l1)
-                                        (listOrExpr []) -- TODO: is Maybe nicer here?
-
-convertCommand (S.If cond l1 (Just l2)) = If
-                                          (convertList cond)
-                                          (convertList l1)
-                                          (convertList l2)
-
-convertCommand (S.SimpleCommand [] ws) = convertWords ws
 -- TODO: parameter doesn't take subscript
 -- TODO: assignment doesn't handle +=
 -- TODO: what are the rest of the words doing here?
 -- TODO: doesn't handle multiple assignment
-convertCommand (S.SimpleCommand [(S.Assign (W.Parameter name _) S.Equals (S.RValue r))] _) =
-    Assignment (LVar name) (convertWord r)
-convertCommand (S.Cond e) = convertCondExpr e
-convertCommand (S.FunctionDef name cmds) = FunctionDef name (convertList cmds)
-convertCommand x = debugWithType x "cc"
+convertCommand (S.SimpleCommand
+                [(S.Assign
+                  (W.Parameter name _)
+                  S.Equals
+                  (S.RValue r))]
+                _)
+                [] =
+  Assignment (LVar name) (convertWord r)
+
+convertCommand (S.Cond e) [] = convertCondExpr e
+convertCommand (S.FunctionDef name cmds) [] =
+    FunctionDef name (convertList cmds)
+
+convertCommand x rs = debugWithType x ("cc" ++ (show rs))
+
+
+
+-- when given a heredoc, convert it into a list of words
+combineHeredoc :: [W.Word] -> [S.Redir] -> [W.Word]
+combineHeredoc ws rs = ws ++ ns
+    where ns = Maybe.catMaybes $ map hd2word rs
+
+
+hd2word :: S.Redir -> Maybe W.Word
+hd2word (S.Heredoc {S.hereDocument=hd}) = Just hd
+hd2word _ = Nothing
+
 
 convertCondExpr :: C.CondExpr W.Word -> Expr
 convertCondExpr (C.Not e) = Not (convertCondExpr e)
@@ -146,17 +170,23 @@ uop2FunctionName a = debugStr (show a) "uop2FunctionName"
 -- uop2FunctionName C.Varname =
 
 
+
+
 convertWords :: [W.Word] -> Expr
+convertWords ([W.Char '['] : ws)
+    | (convertString . last $ ws) == "]" = convertTest . init $ ws
+    | otherwise = debugWithType ws "cw"
+convertWords (w:ws) = convertFunctionCall (convertString w) (map convertWord ws)
 convertWords ws@[] = debugWithType ws "cwEmpty"
-convertWords a@([(W.Char '[' )]:ws)
-    | (last ws) == [W.Char ']'] = convertTest . init $ ws
-    | otherwise = debugWithType a "cw"
-convertWords (w:ws) = FunctionInvocation (convertString w) (map convertWord ws)
+
+convertFunctionCall :: String -> [Expr] -> Expr
+convertFunctionCall "set" [(Str "-e")] = Nop
+convertFunctionCall name args = FunctionInvocation name args
 
 convertTest :: [W.Word] -> Expr
 convertTest ws = case condExpr of
     Left  err -> Debug $ "doesn't parse" ++ (show err) ++ (show hacked)
-    Right e -> (convertCommand (S.Cond (convertStrCondExpr2WordCondExpr e)))
+    Right e -> (convertCommand (S.Cond (convertStrCondExpr2WordCondExpr e)) [])
     where condExpr = C.parseTestExpr hacked
           hacked = hackTestExpr strs
           strs = (map W.unquote ws)
@@ -201,15 +231,6 @@ csce2wce (C.And a b) = C.And (csce2wce a) (csce2wce b)
 csce2wce (C.Or a b) = C.Or (csce2wce a) (csce2wce b)
 
 
--- clean up and optimize and cononicalize things that have been converted poorly
-tidyProgram :: Program -> Program
-tidyProgram (Program e) = Program (tidyExpr e)
-
-tidyExpr :: Expr -> Expr
-tidyExpr (List (e:[])) = e -- one element lists
-tidyExpr e = e
-
-
 foldStrs :: [Expr] -> [Expr]
 foldStrs ((Str a) : (Str b) : ss) = foldStrs ((Str (a ++ b)) : ss)
 foldStrs ss = ss
@@ -236,7 +257,7 @@ cConcat0 es = Concat es
 -- - $#, $1, etc
 -- - nullglob and dotglob
 -- - getopts
--- - set -e (and others)
+-- - set -e - how to allow failure to be handled well? Exceptions?
 
 -- replace shell utilities that are tricku to use
 -- - awk
@@ -262,5 +283,5 @@ translate file = do
   case BashParse.parse "source" src of
     { Left err -> putStrLn (show err)
     ; Right ans -> do
-        putStrLn (G.groom (tidyProgram (Program (convertList ans))))
+        putStrLn (G.groom (Program (convertList ans)))
   }
