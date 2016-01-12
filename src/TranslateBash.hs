@@ -239,6 +239,7 @@ cConcat :: [Expr] -> Expr
 cConcat es = cConcat0 (foldStrs es)
 
 cConcat0 :: [Expr] -> Expr
+cConcat0 [] = Str ""
 cConcat0 (e:[]) = e
 cConcat0 es = Concat es
 
@@ -246,8 +247,7 @@ cConcat0 es = Concat es
 
 -- buggy parsing
 -- - parse DoubleQuoted strings
--- - heredocs are borken (speaceman-diff)
--- - concat [] should be Str ""
+-- - heredocs dont remove leading tabs for <<-
 
 -- handle builtins
 -- - echo (-e)
