@@ -222,23 +222,39 @@ cConcat0 (e:[]) = e
 cConcat0 es = Concat es
 
 -- TODO:
--- convert lists of echos into a single heredoc
--- convert globals into params being passed around
--- convert assignments of "0" and "1" into real bools
--- parse DoubleQuoted strings
--- find BASH_REMATCH and convert it into proper usage
--- find duplicated code
--- variable variables into hashtables
--- turn bash RE into PCRE
--- turn nested if/else into switches
--- turn exit arg into a number
--- parse awk into piped commands
--- convert sed commands
--- convert $# into arguments
--- handle echo -e
--- handle basename $0
--- handle $1
 
+-- buggy parsing
+-- - parse DoubleQuoted strings
+-- - heredocs are borken (speaceman-diff)
+-- - concat [] should be Str ""
+
+-- handle builtins
+-- - echo (-e)
+-- - basename
+-- - printf
+-- - exit (convert to a number)
+-- - $#, $1, etc
+-- - nullglob and dotglob
+-- - getopts
+-- - set -e (and others)
+
+-- replace shell utilities that are tricku to use
+-- - awk
+-- - sed
+-- - cut
+-- - expr
+-- - grep?
+-- - readlink?
+
+-- obvious improvements
+-- - convert lists of echos into a single heredoc
+-- - convert globals into params being passed around
+-- - convert assignments of "0" and "1" into real bools
+-- - find BASH_REMATCH and convert it into proper usage
+-- - find duplicated code
+-- - variable variables into hashtables
+-- - turn bash RE into PCRE
+-- - turn nested if/else into switches
 
 translate :: String -> IO ()
 translate file = do
