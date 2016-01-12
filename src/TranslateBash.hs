@@ -181,6 +181,7 @@ convertWords ws@[] = debugWithType ws "cwEmpty"
 
 convertFunctionCall :: String -> [Expr] -> Expr
 convertFunctionCall "set" [(Str "-e")] = Nop
+convertFunctionCall "set" [(Str "+e")] = Nop
 convertFunctionCall name args = FunctionInvocation name args
 
 convertTest :: [W.Word] -> Expr
