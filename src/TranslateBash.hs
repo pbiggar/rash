@@ -29,6 +29,7 @@ data Expr = Command
             | If Expr Expr Expr
             | And Expr Expr
             | Or Expr Expr
+            | For LValue Expr Expr -- TODO: better to pipe into a for loop?
             | Nop
             | Concat [Expr]
             | Equals Expr Expr
@@ -102,9 +103,15 @@ convertCommand (S.Cond e) [] = convertCondExpr e
 convertCommand (S.FunctionDef name cmds) [] =
     FunctionDef name (convertList cmds)
 
+convertCommand (S.For v wl cmds) [] =
+    For (LVar v) (convertWordList wl) (convertList cmds)
+
 convertCommand x rs = debugWithType x ("cc" ++ (show rs))
 
 
+convertWordList :: S.WordList -> Expr
+convertWordList S.Args = (Str "$@") -- TODO
+convertWordList (S.WordList wl) = listOrExpr (map convertWord wl)
 
 -- when given a heredoc, convert it into a list of words
 combineHeredoc :: [W.Word] -> [S.Redir] -> [W.Word]
