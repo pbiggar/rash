@@ -279,7 +279,7 @@ cConcat0 es = Concat es
 -- - nullglob and dotglob
 -- - getopts
 -- - set -e - how to allow failure to be handled well? Exceptions? We currently
--- - just rip them out
+--   just rip them out
 
 
 -- replace shell utilities that are tricku to use
@@ -289,6 +289,9 @@ cConcat0 es = Concat es
 -- - expr
 -- - grep?
 -- - readlink?
+-- - tr
+-- - xargs?
+-- - seq
 
 -- obvious improvements
 -- - convert lists of echos into a single heredoc
