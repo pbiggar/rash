@@ -205,6 +205,18 @@ convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
     = Variable p
 convertSpan (W.ParamSubst (W.Bare {W.parameter = (W.Parameter p Nothing)}))
     = Variable p
+convertSpan (W.ParamSubst (W.Delete {W.indirect = False,
+                                     W.parameter = (W.Parameter p Nothing),
+                                     W.longest = longest,
+                                     W.deleteDirection = direction,
+                                     W.pattern = pattern}))
+    = FunctionInvocation ("string." ++ name) args
+      where
+        name = if direction == W.Front then "replace_front" else "replace_back"
+        args = [(Variable p), (convertWord pattern)] ++ longestArgs
+        longestArgs = if longest then [] else [Str "--nongreedy"]
+                      -- TODO: indirect?
+
 convertSpan w = debugWithType w "cs"
 
 -- like convertWord but we expect a string
