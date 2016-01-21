@@ -13,7 +13,7 @@ import           Test.Tasty.ExpectedFailure (expectFail)
 main :: IO ()
 
 main = do pts <- fullParseTests
-          defaultMain $ testGroup "Tests" [unitTests, pts, bugs]
+          defaultMain $ testGroup "Tests" [bugs, unitTests, pts]
 
 unitTests :: TestTree
 unitTests = testGroup "Unit tests"
@@ -27,8 +27,12 @@ bugs = testGroup "Known bugs"
         [(testExpected "arg=$1" (Assignment
                                  (LVar "arg")
                                  (Subscript
-                                  (FunctionInvocation "sys.argv" [])
+                                  (Variable "sys.argv")
                                   (Integer 1))))
+       , (testExpected "for i in $@; do nop; done" (For
+                                 (LVar "i")
+                                 (Variable "sys.argv")
+                                 (FunctionInvocation "nop" [])))
        , (testExpected "function x() { arg=$1; }" (FunctionDefinition
                                                    "x"
                                                    [FunctionParameter "arg"]
@@ -63,7 +67,7 @@ testExpected source expected =
     testCase ("`" ++ source ++ "`") $
                case (translate "test" source) of
                  { Left err -> assertFailure ("parseError" ++ (show err))
-                 ; Right prog -> prog @=? Program expected
+                 ; Right prog -> Program expected @=? prog
                  }
 
 fullParseTests :: IO TestTree
