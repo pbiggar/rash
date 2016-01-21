@@ -19,7 +19,19 @@ unitTests :: TestTree
 unitTests = testGroup "Unit tests"
             [(testExpected "a | b" (Pipe
                                     [(FunctionInvocation "a" [])
-                                    , (FunctionInvocation "b" [])]))]
+                                    , (FunctionInvocation "b" [])]))
+            , (testExpected "while `yes`; do echo y; done"
+               (For
+                AnonVar
+                (FunctionInvocation "yes" [])
+                (FunctionInvocation "echo" [Str "y"])))
+
+           , (testExpected "while read input; do echo $input; done"
+                               (For
+                                (LVar "input")
+                                (FunctionInvocation "sys.read" [])
+                                (FunctionInvocation "echo" [Variable "input"])))
+           ]
 
 bugs :: TestTree
 bugs = testGroup "Known bugs"
@@ -67,7 +79,7 @@ testExpected source expected =
     testCase ("`" ++ source ++ "`") $
                case (translate "test" source) of
                  { Left err -> assertFailure ("parseError" ++ (show err))
-                 ; Right prog -> Program expected @=? prog
+                 ; Right (Program prog) -> expected @=? prog
                  }
 
 fullParseTests :: IO TestTree

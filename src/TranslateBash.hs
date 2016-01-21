@@ -74,7 +74,8 @@ data Expr =
 
 -- TODO: separate or combined definitions of Variables or LHS and RHS, and
 -- arrays and hashtables?
-data LValue = LVar String
+data LValue =   LVar String
+              | AnonVar
               deriving (Show, Eq, Read, Data, Typeable)
 
 data FunctionParameter = FunctionParameter String
@@ -134,6 +135,9 @@ convertShellCommand (S.FunctionDef name cmds) [] =
 convertShellCommand (S.For v wl cmds) [] =
     For (LVar v) (convertWordList wl) (convertList cmds)
 
+convertShellCommand (S.While expr cmds) [] =
+    For AnonVar (convertList expr) (convertList cmds)
+
 convertShellCommand x rs = debugWithType x ("cc" ++ (show rs))
 
 
@@ -191,6 +195,9 @@ convertSpan (W.ParamSubst (W.Delete {W.indirect = False,
         args = [(Variable p), (convertWord pattern)] ++ longestArgs
         longestArgs = if longest then [] else [Str "--nongreedy"]
                       -- TODO: indirect?
+
+convertSpan (W.Backquote w) = parsestring (W.unquote w)
+
 
 convertSpan w = debugWithType w "cs"
 
@@ -363,6 +370,12 @@ cConcat0 es = Concat es
 -- turn nested if/else into switches
 -- exit code into integer
 -- if IFS is set, all bets are off
+
+parsestring :: String -> Expr
+parsestring source = case translate "src" source of
+                     { Left err -> error ("nested parse of " ++ source ++ " failed")
+                     ; Right (Program expr) -> expr
+                     }
 
 translate :: String -> String -> Either ParseError Program
 translate name source =
