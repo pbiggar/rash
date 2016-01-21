@@ -19,7 +19,7 @@ import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
-import           Data.Generics.Uniplate.Data()
+import           Data.Generics.Uniplate.Data(transformBi)
 import Data.Data
 import Data.Typeable()
 --import qualified Text.Regex.PCRE.Heavy as RE
@@ -129,7 +129,7 @@ convertShellCommand (S.AssignBuiltin w es) []
 
 convertShellCommand (S.Cond e) [] = convertCondExpr e
 convertShellCommand (S.FunctionDef name cmds) [] =
-    FunctionDefinition name [] (convertList cmds)
+    postProcessFunctionDefs (FunctionDefinition name [] (convertList cmds))
 
 convertShellCommand (S.For v wl cmds) [] =
     For (LVar v) (convertWordList wl) (convertList cmds)
@@ -324,8 +324,27 @@ cConcat0 [] = Str ""
 cConcat0 (e:[]) = e
 cConcat0 es = Concat es
 
--- TODO:
+-- | Perform transformations across the AST (everywhere)
+postProcess :: Program -> Program
+postProcess = transformBi f
+    where
+      -- | Convert `while read input` into `for $input sys.read()`
+      f (For AnonVar (Assignment v rv) block) =
+          For v rv block
 
+      -- | Convert `read input` into `input = sys.read()`
+      f (FunctionInvocation (Str "read") [Str var]) =
+          Assignment (LVar var)
+                        (FunctionInvocation (Str "sys.read") [])
+      f x = x
+
+-- | Perform transformations across the AST (only within function definitions)
+postProcessFunctionDefs :: Expr -> Expr
+postProcessFunctionDefs = id
+
+
+
+-- TODO:
 -- | possibly buggy parsing
 -- parse DoubleQuoted strings
 -- heredocs dont remove leading tabs for <<-
@@ -385,7 +404,7 @@ translate :: String -> String -> Either ParseError Program
 translate name source =
     case BashParse.parse name source of
       { Left err -> Left err
-      ; Right ans -> Right (Program (convertList ans))
+      ; Right ans -> Right (postProcess (Program (convertList ans)))
       }
 
 translateFile :: String -> IO (Either ParseError Program)

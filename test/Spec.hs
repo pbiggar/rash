@@ -30,6 +30,11 @@ unitTests = testGroup "Unit tests"
                                 (LVar "input")
                                 (fi "sys.read" [])
                                 (fi "echo" [Variable "input"])))
+           , (testExpected "read input"
+                               (Assignment
+                                (LVar "input")
+                                (fi "sys.read" [])))
+
            ]
 
 bugs :: TestTree
@@ -70,7 +75,7 @@ testParses file =
        return (testCase ("parsing " ++ file) $
                  case parsed of
                    { Left err -> assertFailure ("parseError" ++ (show err))
-                   ; Right (Program exprs) -> [ y | Debug y <- universe exprs ] @?= []
+                   ; Right prog -> [] @=? [ y | Debug y <- universeBi prog ]
                    })
 
 -- | A test with an expected value
