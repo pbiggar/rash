@@ -7,7 +7,7 @@ import           Text.Parsec.Error            (ParseError)
 import           TranslateBash
 import           Data.List (isInfixOf)
 import           Test.Tasty.ExpectedFailure (expectFail)
-
+import           Data.Generics.Uniplate.Operations
 
 
 main :: IO ()
@@ -59,7 +59,7 @@ testParses file =
        return (testCase ("parsing " ++ file) $
                  case parsed of
                    { Left err -> assertFailure ("parseError" ++ (show err))
-                   ; Right prog -> isInfixOf "Debug" (show (prog)) @=? False
+                   ; Right (Program exprs) -> [ y | Debug y <- universe exprs ] @?= []
                    })
 
 -- | A test with an expected value

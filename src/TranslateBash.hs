@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, FlexibleContexts #-}
+{-# LANGUAGE QuasiQuotes, FlexibleContexts, DeriveDataTypeable #-}
 
 module TranslateBash
     ( translateFileToStdout
@@ -19,6 +19,9 @@ import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
+import           Data.Generics.Uniplate.Data
+import Data.Data
+import Data.Typeable
 --import qualified Text.Regex.PCRE.Heavy as RE
 --import qualified Data.List.Utils as U
 import qualified Data.Maybe as Maybe
@@ -35,7 +38,7 @@ debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> Stri
 debugWithType x reason = debug x (reason ++ " " ++ (show (Typeable.typeOf x)))
 
 -- | The AST definition
-data Program = Program Expr deriving (Show, Eq, Read)
+data Program = Program Expr deriving (Show, Eq, Read, Data, Typeable)
 data Expr =
   -- | Control flow
     For LValue Expr Expr -- TODO: better to pipe into a for loop?
@@ -67,15 +70,15 @@ data Expr =
   | Assignment LValue Expr
   | Subscript Expr Expr
 
-    deriving (Show, Eq, Read)
+    deriving (Show, Eq, Read, Data, Typeable)
 
 -- TODO: separate or combined definitions of Variables or LHS and RHS, and
 -- arrays and hashtables?
 data LValue = LVar String
-              deriving (Show, Eq, Read)
+              deriving (Show, Eq, Read, Data, Typeable)
 
 data FunctionParameter = FunctionParameter String
-                         deriving (Show, Eq, Read)
+                         deriving (Show, Eq, Read, Data, Typeable)
 
 
 
