@@ -5,5 +5,5 @@ import TranslateBash
 
 main :: IO ()
 main = do
-  (script:_) <- getArgs
-  translate script
+  (scriptname:_) <- getArgs
+  translateFileToStdout scriptname

@@ -1,7 +1,14 @@
 {-# LANGUAGE QuasiQuotes, FlexibleContexts #-}
 
 module TranslateBash
-    ( translate
+    ( translateFileToStdout
+    , translateFile
+    , translate
+    , Expr(..)
+    , Program(..)
+    , LValue(..)
+    , FunctionParameter(..)
+    , convertList
     ) where
 
 import qualified Language.Bash.Parse as BashParse
@@ -11,6 +18,7 @@ import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
+import           Text.Parsec.Error            (ParseError)
 --import qualified Text.Regex.PCRE.Heavy as RE
 --import qualified Data.List.Utils as U
 import qualified Data.Maybe as Maybe
@@ -27,32 +35,49 @@ debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> Stri
 debugWithType x reason = debug x (reason ++ " " ++ (show (Typeable.typeOf x)))
 
 -- | The AST definition
-data Program = Program Expr deriving (Show)
-data Expr = Command
-            | If Expr Expr Expr
-            | And Expr Expr
-            | Or Expr Expr
-            | For LValue Expr Expr -- TODO: better to pipe into a for loop?
-            | Nop
-            | Concat [Expr]
-            | Equals Expr Expr
-            | LessThan Expr Expr
-            | GreaterThan Expr Expr
-            | FunctionInvocation String [Expr]
-            | FunctionDef String Expr
-            | Not Expr
-            | Shellout String -- TODO: we need to parse this string in some cases
-            | Str String
-            | Variable String
-            | Assignment LValue Expr
-            | Debug String
-            | List [Expr] -- the last one is the true value
-              deriving (Show)
+data Program = Program Expr deriving (Show, Eq, Read)
+data Expr =
+  -- | Control flow
+    For LValue Expr Expr -- TODO: better to pipe into a for loop?
+  | If Expr Expr Expr
+  | Pipe [Expr]
+  | List [Expr] -- the last one is the true value
+
+  -- | Operators
+  | And Expr Expr
+  | Or Expr Expr
+  | Equals Expr Expr
+  | LessThan Expr Expr
+  | GreaterThan Expr Expr
+  | Not Expr
+  | Concat [Expr]
+  -- | Literals
+  | Str String
+  | Integer Int
+  -- | Temporary
+  | Debug String
+  | Nop
+  -- | Functions
+  | FunctionInvocation String [Expr]
+  | FunctionDefinition String [FunctionParameter] Expr
+
+  | Shellout [Expr]
+  -- | Storage
+  | Variable String
+  | Assignment LValue Expr
+  | Subscript Expr Expr
+
+    deriving (Show, Eq, Read)
 
 -- TODO: separate or combined definitions of Variables or LHS and RHS, and
 -- arrays and hashtables?
 data LValue = LVar String
-              deriving (Show)
+              deriving (Show, Eq, Read)
+
+data FunctionParameter = FunctionParameter String
+                         deriving (Show, Eq, Read)
+
+
 
 -- | Lists
 convertList :: S.List -> Expr
@@ -61,6 +86,7 @@ convertList (S.List stmts) =
     listOrExpr [ convertAndOr x | (S.Statement x _) <- stmts ]
 
 listOrExpr :: [Expr] -> Expr
+listOrExpr [] = Nop
 listOrExpr (e:[]) = e
 listOrExpr es = List es
 
@@ -70,10 +96,14 @@ convertAndOr (S.Last p) = convertPipeline p
 convertAndOr (S.And p ao) = And (convertPipeline p) (convertAndOr ao)
 convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
 
+listOrPipe :: [Expr] -> Expr
+listOrPipe (e:[]) = e
+listOrPipe es = Pipe es
+
 convertPipeline :: S.Pipeline -> Expr
 -- ignored timing and inverted. I think this is right.
 convertPipeline (S.Pipeline _ _ _ cs) =
-    listOrExpr [ convertShellCommand sc rs | (S.Command sc rs) <- cs ]
+    listOrPipe [ convertShellCommand sc rs | (S.Command sc rs) <- cs ]
 
 -- | Commands
 convertShellCommand :: S.ShellCommand -> [S.Redir] -> Expr
@@ -96,7 +126,7 @@ convertShellCommand (S.AssignBuiltin w es) []
 
 convertShellCommand (S.Cond e) [] = convertCondExpr e
 convertShellCommand (S.FunctionDef name cmds) [] =
-    FunctionDef name (convertList cmds)
+    FunctionDefinition name [] (convertList cmds)
 
 convertShellCommand (S.For v wl cmds) [] =
     For (LVar v) (convertWordList wl) (convertList cmds)
@@ -131,7 +161,7 @@ convertWords :: [W.Word] -> Expr
 convertWords ([W.Char '['] : ws)
     | (convertString . last $ ws) == "]" = convertTest . init $ ws
     | otherwise = debugWithType ws "cw"
-convertWords (w:ws) = convertFunctionCall (convertString w) (map convertWord ws)
+convertWords (w:ws) = convertFunctionCall (convertWord w) (map convertWord ws)
 convertWords ws@[] = debugWithType ws "cwEmpty"
 
 convertWord :: W.Word -> Expr
@@ -141,7 +171,7 @@ convertSpan :: W.Span -> Expr
 convertSpan (W.Char c) = Str [c]
 convertSpan (W.Double w) = cConcat [convertWord w]
 convertSpan (W.Single w) = cConcat [convertWord w]
-convertSpan (W.CommandSubst c) = Shellout c
+convertSpan (W.CommandSubst c) = Shellout [(Str c)] -- TODO: we should parse this
 convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
                                     W.parameter = (W.Parameter p Nothing)}))
     = Variable p
@@ -167,11 +197,13 @@ convertString w = case (convertWord w) of
                     (Str s) -> s
                     _ -> "TODO - couldnt get a string out of " ++ (show w)
 
+-- TODO: support first class functions?
+convertFunctionCall :: Expr -> [Expr] -> Expr
+convertFunctionCall (Str "set") [(Str "-e")] = Nop
+convertFunctionCall (Str "set") [(Str "+e")] = Nop
+convertFunctionCall (Str name) args = FunctionInvocation name args
+convertFunctionCall name args = Shellout (name : args)
 
-convertFunctionCall :: String -> [Expr] -> Expr
-convertFunctionCall "set" [(Str "-e")] = Nop
-convertFunctionCall "set" [(Str "+e")] = Nop
-convertFunctionCall name args = FunctionInvocation name args
 
 
 -- | Heredocs
@@ -186,6 +218,8 @@ hd2word _ = Nothing
 -- | CondExprs
 convertCondExpr :: C.CondExpr W.Word -> Expr
 convertCondExpr (C.Not e) = Not (convertCondExpr e)
+convertCondExpr (C.And a b) = And (convertCondExpr a) (convertCondExpr b)
+convertCondExpr (C.Or a b) = Or (convertCondExpr a) (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
     FunctionInvocation (uop2FunctionName uop) [convertWord w]
 convertCondExpr (C.Binary l C.StrEQ r) = Equals (convertWord l) (convertWord r)
@@ -300,6 +334,7 @@ cConcat0 es = Concat es
 -- set -e - how to allow failure to be handled well? Exceptions? We currently
 --   just rip them out for now
 -- type
+-- backticks and $()s
 
 
 -- | replace shell utilities that are tricky to use
@@ -326,11 +361,22 @@ cConcat0 es = Concat es
 -- exit code into integer
 -- if IFS is set, all bets are off
 
-translate :: String -> IO ()
-translate file = do
+translate :: String -> String -> Either ParseError Program
+translate name source =
+    case BashParse.parse name source of
+      { Left err -> Left err
+      ; Right ans -> Right (Program (convertList ans))
+      }
+
+translateFile :: String -> IO (Either ParseError Program)
+translateFile file = do
   src <- readFile file
-  case BashParse.parse file src of
+  return (translate file src)
+
+translateFileToStdout :: String -> IO ()
+translateFileToStdout file = do
+  e <- translateFile file
+  case e of
     { Left err -> putStrLn (show err)
-    ; Right ans -> do
-        putStrLn (G.groom (Program (convertList ans)))
-  }
+    ; Right prog -> putStrLn (G.groom prog)
+    }
