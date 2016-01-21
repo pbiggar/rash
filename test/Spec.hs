@@ -16,53 +16,52 @@ fi :: String -> [Expr] -> Expr
 fi name args = FunctionInvocation (Str name) args
 
 unitTests :: TestTree
-unitTests = testGroup "Unit tests"
-            [(testExpected "a | b" (Pipe
-                                    [(fi "a" [])
-                                    , (fi "b" [])]))
-            , (testExpected "while yes; do echo y; done"
-               (For
-                AnonVar
-                (fi "yes" [])
-                (fi "echo" [Str "y"])))
-           , (testExpected "while read input; do echo $input; done"
-                               (For
-                                (LVar "input")
-                                (fi "sys.read" [])
-                                (fi "echo" [Variable "input"])))
-           , (testExpected "read input"
-                               (Assignment
-                                (LVar "input")
-                                (fi "sys.read" [])))
-
-           ]
+unitTests =
+  testGroup "Unit tests"
+    [(testExpected "a | b" (Pipe
+                            [(fi "a" [])
+                            , (fi "b" [])]))
+    ,(testExpected "while yes; do echo y; done"
+                       (For
+                        AnonVar
+                        (fi "yes" [])
+                        (fi "echo" [Str "y"])))
+    ,(testExpected "while read input; do echo $input; done"
+                       (For
+                        (LVar "input")
+                        (fi "sys.read" [])
+                        (fi "echo" [Variable "input"])))
+    ,(testExpected "read input"
+                       (Assignment
+                        (LVar "input")
+                        (fi "sys.read" [])))
+    ,(testExpected "type wget" (fi
+                                "os.onPath"
+                                [(Str "wget")]))
+    ,(testExpected "exit 1" (fi
+                             "sys.exit"
+                             [(Integer 1)]))
+    ]
 
 bugs :: TestTree
-bugs = testGroup "Known bugs"
-       (map expectFail
-        [(testExpected "arg=$1" (Assignment
-                                 (LVar "arg")
-                                 (Subscript
-                                  (Variable "sys.argv")
-                                  (Integer 1))))
-       , (testExpected "for i in $@; do nop; done" (For
-                                 (LVar "i")
-                                 (Variable "sys.argv")
-                                 (fi "nop" [])))
-       , (testExpected "function x() { arg=$1; }" (FunctionDefinition
-                                                   "x"
-                                                   [FunctionParameter "arg"]
-                                                   Nop))
-       , (testExpected "type wget" (fi
-                                    "os.onPath"
-                                    [(Str "wget")]))
-       , (testExpected "exit 1" (fi
-                                 "sys.exit"
-                                 [(Integer 1)]))
-       , (testExpected "if [ \"`uname`\" = Darwin ]; then ''; fi"
-                           (If (Equals (fi "uname" [])
-                                       (Str "Darwin"))
-                            (Str "") Nop))
+bugs =
+  testGroup "Known bugs"
+   (map expectFail
+    [(testExpected "arg=$1" (Assignment
+                             (LVar "arg")
+                             (Subscript
+                              (Variable "sys.argv")
+                              (Integer 1))))
+    ,(testExpected "for i in $@; do nop; done" (For
+                                                (LVar "i")
+                                                (Variable "sys.argv")
+                                                (fi "nop" [])))
+    ,(testExpected "function x() { arg=$1; }" (FunctionDefinition
+                                               "x"
+                                               [FunctionParameter "arg"]
+                                               Nop))
+    ,(testExpected "[ \"`uname`\" = Darwin ]"
+                       (Equals (fi "uname" []) (Str "Darwin")))
 
         ])
 

@@ -336,7 +336,20 @@ postProcess = transformBi f
       f (FunctionInvocation (Str "read") [Str var]) =
           Assignment (LVar var)
                         (FunctionInvocation (Str "sys.read") [])
+
+      -- | Convert `type wget` into `sys.onPath wget`
+      f (FunctionInvocation (Str "type") args) =
+          FunctionInvocation (Str "os.onPath") args
+
+      -- | Convert exit and it's arguments
+      f (FunctionInvocation (Str "exit") args) =
+          FunctionInvocation (Str "sys.exit")
+                              (map convertExitArg args)
       f x = x
+
+      convertExitArg (Str v) = (Integer (read v :: Int))
+      convertExitArg v = v
+
 
 -- | Perform transformations across the AST (only within function definitions)
 postProcessFunctionDefs :: Expr -> Expr
