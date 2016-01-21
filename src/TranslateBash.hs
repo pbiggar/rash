@@ -19,9 +19,9 @@ import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
-import           Data.Generics.Uniplate.Data
+import           Data.Generics.Uniplate.Data()
 import Data.Data
-import Data.Typeable
+import Data.Typeable()
 --import qualified Text.Regex.PCRE.Heavy as RE
 --import qualified Data.List.Utils as U
 import qualified Data.Maybe as Maybe
@@ -61,10 +61,9 @@ data Expr =
   | Debug String
   | Nop
   -- | Functions
-  | FunctionInvocation String [Expr]
+  | FunctionInvocation Expr [Expr]
   | FunctionDefinition String [FunctionParameter] Expr
 
-  | Shellout [Expr]
   -- | Storage
   | Variable String
   | Assignment LValue Expr
@@ -178,7 +177,7 @@ convertSpan :: W.Span -> Expr
 convertSpan (W.Char c) = Str [c]
 convertSpan (W.Double w) = cConcat [convertWord w]
 convertSpan (W.Single w) = cConcat [convertWord w]
-convertSpan (W.CommandSubst c) = Shellout [(Str c)] -- TODO: we should parse this
+convertSpan (W.CommandSubst c) = parseString c
 convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
                                     W.parameter = (W.Parameter p Nothing)}))
     = Variable p
@@ -189,14 +188,14 @@ convertSpan (W.ParamSubst (W.Delete {W.indirect = False,
                                      W.longest = longest,
                                      W.deleteDirection = direction,
                                      W.pattern = pattern}))
-    = FunctionInvocation ("string." ++ name) args
+    = FunctionInvocation (Str ("string." ++ name)) args
       where
         name = if direction == W.Front then "replace_front" else "replace_back"
         args = [(Variable p), (convertWord pattern)] ++ longestArgs
         longestArgs = if longest then [] else [Str "--nongreedy"]
                       -- TODO: indirect?
 
-convertSpan (W.Backquote w) = parsestring (W.unquote w)
+convertSpan (W.Backquote w) = parseWord w
 
 
 convertSpan w = debugWithType w "cs"
@@ -211,8 +210,7 @@ convertString w = case (convertWord w) of
 convertFunctionCall :: Expr -> [Expr] -> Expr
 convertFunctionCall (Str "set") [(Str "-e")] = Nop
 convertFunctionCall (Str "set") [(Str "+e")] = Nop
-convertFunctionCall (Str name) args = FunctionInvocation name args
-convertFunctionCall name args = Shellout (name : args)
+convertFunctionCall name args = FunctionInvocation name args
 
 
 
@@ -231,7 +229,7 @@ convertCondExpr (C.Not e) = Not (convertCondExpr e)
 convertCondExpr (C.And a b) = And (convertCondExpr a) (convertCondExpr b)
 convertCondExpr (C.Or a b) = Or (convertCondExpr a) (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
-    FunctionInvocation (uop2FunctionName uop) [convertWord w]
+    FunctionInvocation (Str (uop2FunctionName uop)) [convertWord w]
 convertCondExpr (C.Binary l C.StrEQ r) = Equals (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.ArithEQ r) = Equals (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.StrNE r) = Not (Equals (convertWord l) (convertWord r))
@@ -241,7 +239,7 @@ convertCondExpr (C.Binary l C.ArithLT r) = LessThan (convertWord l) (convertWord
 convertCondExpr (C.Binary l C.StrGT r) = GreaterThan (convertWord l) (convertWord r)
 convertCondExpr (C.Binary l C.ArithLE r) = Not (GreaterThan (convertWord l) (convertWord r))
 convertCondExpr (C.Binary l C.ArithGE r) = Not (LessThan (convertWord l) (convertWord r))
-convertCondExpr (C.Binary l bop r) = FunctionInvocation (bop2FunctionName bop) [convertWord l, convertWord r]
+convertCondExpr (C.Binary l bop r) = FunctionInvocation (Str (bop2FunctionName bop)) [convertWord l, convertWord r]
 
 convertCondExpr e = debugWithType e "ceEmpty"
 
@@ -371,11 +369,17 @@ cConcat0 es = Concat es
 -- exit code into integer
 -- if IFS is set, all bets are off
 
-parsestring :: String -> Expr
-parsestring source = case translate "src" source of
-                     { Left err -> error ("nested parse of " ++ source ++ " failed")
+parseWord :: W.Word -> Expr
+parseWord word = parseString (W.unquote word)
+
+
+parseString :: String -> Expr
+parseString source = case translate "src" source of
+                     { Left err -> error ("nested parse of " ++ source ++ " failed: " ++ (show err))
                      ; Right (Program expr) -> expr
                      }
+
+
 
 translate :: String -> String -> Either ParseError Program
 translate name source =
