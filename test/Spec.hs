@@ -41,6 +41,8 @@ unitTests =
     ,(testExpected "exit 1" (fi
                              "sys.exit"
                              [(Integer 1)]))
+    ,(testExpected "[ \"`uname`\" = Darwin ]"
+                       (Equals (fi "uname" []) (Str "Darwin")))
     ]
 
 bugs :: TestTree
@@ -56,14 +58,15 @@ bugs =
                                                 (LVar "i")
                                                 (Variable "sys.argv")
                                                 (fi "nop" [])))
+    ,(testExpected "[ $a == https* ]" (fi "string.matches?"
+                                              [(Variable "a"),
+                                              (Str "https*")]))
     ,(testExpected "function x() { arg=$1; }" (FunctionDefinition
                                                "x"
                                                [FunctionParameter "arg"]
                                                Nop))
-    ,(testExpected "[ \"`uname`\" = Darwin ]"
-                       (Equals (fi "uname" []) (Str "Darwin")))
 
-        ])
+                                      ])
 
 -- TODO: add tests from how wrong we got things
 

@@ -281,21 +281,35 @@ uop2FunctionName a = debugStr (show a) "uop2FunctionName"
 
 -- | Tests (handles test, '[' and '[[')
 convertTest :: [W.Word] -> Expr
--- note that bash parses tests after it has expanded the arguments, and so you
--- can't really statically parse this. For example, what does `[ "$x" a ]` do?
--- Still, we can get this right when they are statically specified, and get the
--- gist right in some cases otherwise.
+
+-- convertTest receives a list of words. Semantically, Bash would evaluate many
+-- of those words (expanding arguments and parameters, etc), because passing it
+-- to `test`. So semantically, we can't parse this correctly.
+-- For example, what does `[ "$x" a ]` do?
+
+-- parseTestExpr is really designed for run-time use, and doesn't produce parsed
+-- words. For example [ "x" = "`uname`" ] won't result in a CommandSubst with
+-- "uname" in it, because Bash doesn't actually do that, semantically. But
+-- that's what we want!
+
+-- Another apporach is to wrap the string in [[. Unfortunately, [[ doesn't actually work the same as [, for example -a doesn't work the same.
+
+-- I think the correct approach is to parse it, then reparse the words again.
 convertTest ws = case condExpr of
     Left  err -> Debug $ "doesn't parse" ++ (show err) ++ (show hacked)
-    Right e -> (convertShellCommand (S.Cond (convertStrCondExpr2WordCondExpr e)) [])
-    where condExpr = C.parseTestExpr hacked
-          hacked = hackTestExpr strs
-          strs = (map W.unquote ws)
+    Right e -> (convertCondExpr (convertStrCondExpr2WordCondExpr e))
+    where condExpr = C.parseTestExpr strs
+          strs = (map W.unquote hacked)
+          hacked = hackTestExpr ws
 
--- break the bash rules to fix up mistakes
-hackTestExpr :: [String] -> [String]
--- [ -a asd ] works, but [ ! -a asd] doesnt because -a is the "and" operator. -e does the same though.
-hackTestExpr ("!" : "-a" : ws) = ("!" : "-e" : ws)
+
+-- | break the bash rules to fix up mistakes
+hackTestExpr :: [W.Word] -> [W.Word]
+-- [ -a asd ] works, but [ ! -a asd] doesnt because -a is the "and" operator. -e
+-- does the same though.
+hackTestExpr ws@(n:a:rest)
+  | n == W.fromString "!" && a == W.fromString "-a" = (n:(W.fromString "-e"):rest)
+  | otherwise = ws
 hackTestExpr ws = ws
 
 
@@ -303,8 +317,8 @@ hackTestExpr ws = ws
 convertStrCondExpr2WordCondExpr :: C.CondExpr String -> C.CondExpr W.Word
 convertStrCondExpr2WordCondExpr = csce2wce
 csce2wce :: C.CondExpr String -> C.CondExpr W.Word
-csce2wce (C.Unary uop a) = C.Unary uop (W.fromString a)
-csce2wce (C.Binary a bop b) = C.Binary (W.fromString a) bop (W.fromString b)
+csce2wce (C.Unary uop a) = C.Unary uop (parseString2Word a)
+csce2wce (C.Binary a bop b) = C.Binary (parseString2Word a) bop (parseString2Word b)
 csce2wce (C.Not a) = C.Not (csce2wce a)
 csce2wce (C.And a b) = C.And (csce2wce a) (csce2wce b)
 csce2wce (C.Or a b) = C.Or (csce2wce a) (csce2wce b)
@@ -404,21 +418,36 @@ postProcessFunctionDefs = id
 parseWord :: W.Word -> Expr
 parseWord word = parseString (W.unquote word)
 
-
 parseString :: String -> Expr
-parseString source = case translate "src" source of
-                     { Left err -> error ("nested parse of " ++ source ++ " failed: " ++ (show err))
-                     ; Right (Program expr) -> expr
-                     }
+parseString source =
+    case translate "src" source of
+      Left err -> error ("nested parse of " ++ source ++ " failed: " ++ (show err))
+      Right (Program expr) -> expr
 
+parseString2Word :: String -> W.Word
+parseString2Word w = word
+    where
+      word = case BashParse.parse "source" source of
+            Left err ->
+              error ("nested parse of " ++ source ++ " failed: " ++ (show err))
+            Right (S.List []) -> W.fromString ""
+            Right (S.List
+                   [S.Statement
+                    (S.Last
+                     (S.Pipeline {S.commands=[S.Command
+                                              (S.SimpleCommand [] [x]) []]}))
+                   _]) ->
+              x
+            Right e ->
+              error ("nested parse of " ++ source ++ " was unexpected: " ++ (show e))
+      source = BashPretty.prettyText w
 
 
 translate :: String -> String -> Either ParseError Program
 translate name source =
     case BashParse.parse name source of
-      { Left err -> Left err
-      ; Right ans -> Right (postProcess (Program (convertList ans)))
-      }
+      Left err -> Left err
+      Right ans -> Right (postProcess (Program (convertList ans)))
 
 translateFile :: String -> IO (Either ParseError Program)
 translateFile file = do
@@ -429,6 +458,5 @@ translateFileToStdout :: String -> IO ()
 translateFileToStdout file = do
   e <- translateFile file
   case e of
-    { Left err -> putStrLn (show err)
-    ; Right prog -> putStrLn (G.groom prog)
-    }
+    Left err -> putStrLn (show err)
+    Right prog -> putStrLn (G.groom prog)
