@@ -365,6 +365,22 @@ postProcess = transformBi f
       f (FunctionInvocation (Str "exit") args) =
           FunctionInvocation (Str "sys.exit")
                               (map convertExitArg args)
+
+      -- | Convert $1, $2, etc to sys.argv[1] etc
+      f (Variable "1") = Subscript (Variable "sys.argv") (Integer 1)
+      f (Variable "2") = Subscript (Variable "sys.argv") (Integer 2)
+      f (Variable "3") = Subscript (Variable "sys.argv") (Integer 3)
+      f (Variable "4") = Subscript (Variable "sys.argv") (Integer 4)
+      f (Variable "5") = Subscript (Variable "sys.argv") (Integer 5)
+      f (Variable "6") = Subscript (Variable "sys.argv") (Integer 6)
+      f (Variable "7") = Subscript (Variable "sys.argv") (Integer 7)
+      f (Variable "8") = Subscript (Variable "sys.argv") (Integer 8)
+      f (Variable "9") = Subscript (Variable "sys.argv") (Integer 9)
+      -- | Convert $# to sys.argv.length
+      -- | Convert $@ to sys.argv
+      f (Variable "#") = FunctionInvocation (Str "length") [(Variable "sys.argv")]
+      f (Variable "@") = Variable "sys.argv"
+
       f x = x
 
       convertExitArg (Str v) = (Integer (read v :: Int))
