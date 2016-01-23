@@ -180,10 +180,13 @@ convertSpan :: W.Span -> Expr
 convertSpan (W.Char c) = Str [c]
 convertSpan (W.Double w) = cConcat [convertWord w]
 convertSpan (W.Single w) = cConcat [convertWord w]
+convertSpan (W.Escape c) = Str [c]
 convertSpan (W.CommandSubst c) = parseString c
 convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
                                     W.parameter = (W.Parameter p Nothing)}))
     = Variable p
+convertSpan (W.ParamSubst (W.Length {W.parameter = (W.Parameter p Nothing)}))
+    = FunctionInvocation (Str "string.length") [(Variable p)]
 convertSpan (W.ParamSubst (W.Bare {W.parameter = (W.Parameter p Nothing)}))
     = Variable p
 convertSpan (W.ParamSubst (W.Delete {W.indirect = False,
