@@ -137,6 +137,9 @@ convertShellCommand (S.For v wl cmds) [] =
 convertShellCommand (S.While expr cmds) [] =
     For AnonVar (convertList expr) (convertList cmds)
 
+convertShellCommand (S.Group list) [] =
+    convertList list
+
 convertShellCommand x rs = debugWithType x ("cc" ++ (show rs))
 
 
