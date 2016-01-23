@@ -43,13 +43,7 @@ unitTests =
                              [(Integer 1)]))
     ,(testExpected "[ \"`uname`\" = Darwin ]"
                        (Equals (fi "uname" []) (Str "Darwin")))
-    ]
-
-bugs :: TestTree
-bugs =
-  testGroup "Known bugs"
-   (map expectFail
-    [(testExpected "arg=$1" (Assignment
+    ,(testExpected "arg=$1" (Assignment
                              (LVar "arg")
                              (Subscript
                               (Variable "sys.argv")
@@ -58,15 +52,24 @@ bugs =
                                                 (LVar "i")
                                                 (Variable "sys.argv")
                                                 (fi "nop" [])))
-    ,(testExpected "[ $a == https* ]" (fi "string.matches?"
+
+    ]
+
+bugs :: TestTree
+bugs =
+  testGroup "Known bugs"
+   (map expectFail
+    [(testExpected "[ $a == https* ]" (fi "string.matches?"
                                               [(Variable "a"),
                                               (Str "https*")]))
     ,(testExpected "function x() { arg=$1; }" (FunctionDefinition
                                                "x"
                                                [FunctionParameter "arg"]
                                                Nop))
-
-                                      ])
+    ,(testExpected "$GH_GREP | \\\n sed 'asd' \n\n" (Pipe [(FunctionInvocation (Variable "a") [(Str "b"), (Str "c")]),
+                                      (FunctionInvocation (Variable "d") [])]))
+    ,(testExpected "arguments()" Nop)
+    ])
 
 -- TODO: add tests from how wrong we got things
 
@@ -92,4 +95,5 @@ testExpected source expected =
 fullParseTests :: IO TestTree
 fullParseTests =
     do test <- testParses "data/github-markdown-toc/gh-md-toc"
-       return $ testGroup "Parse tests" [test]
+       test2 <- testParses "data/le.sh"
+       return $ testGroup "Parse tests" [test, test2]

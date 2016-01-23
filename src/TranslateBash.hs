@@ -392,12 +392,13 @@ postProcessFunctionDefs :: Expr -> Expr
 postProcessFunctionDefs = id
 
 
-
--- TODO:
+-- || TODO:
 -- | possibly buggy parsing
 -- parse DoubleQuoted strings
 -- heredocs dont remove leading tabs for <<-
 -- when parsing AssignBuiltin, lists of words wont be handled as lists of words
+-- return is here as a function name, not a control flow thing
+-- shell redirection
 
 -- | handle builtins
 -- echo (-e)
@@ -425,7 +426,13 @@ postProcessFunctionDefs = id
 -- seq
 -- curl/wget into builtin
 
+-- | Handle bash idioms
+-- when it expects env args (eg, undefined vars being compared to -z, all caps),
+-- use sys.argv instead of the var itself
+-- __n=$(cat) - reading from stdin
+
 -- | obvious improvements
+-- keep comments
 -- convert lists of echos into a single heredoc
 -- convert globals into params being passed around
 -- convert assignments of "0" and "1" into real bools
