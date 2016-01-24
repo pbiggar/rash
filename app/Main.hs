@@ -1,7 +1,8 @@
 module Main where
 
-import System.Environment
-import TranslateBash
+import System.Environment(getArgs)
+
+import Rash.Bash2AST
 
 main :: IO ()
 main = do

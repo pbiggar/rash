@@ -1,13 +1,9 @@
 {-# LANGUAGE QuasiQuotes, FlexibleContexts, DeriveDataTypeable #-}
 
-module TranslateBash
+module Rash.Bash2AST
     ( translateFileToStdout
     , translateFile
     , translate
-    , Expr(..)
-    , Program(..)
-    , LValue(..)
-    , FunctionParameter(..)
     , convertList
     ) where
 
@@ -20,8 +16,7 @@ import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
 import           Data.Generics.Uniplate.Data(transformBi)
-import Data.Data
-import Data.Typeable()
+import Rash.AST
 --import qualified Text.Regex.PCRE.Heavy as RE
 --import qualified Data.List.Utils as U
 import qualified Data.Maybe as Maybe
@@ -36,49 +31,6 @@ debug x reason = Debug (debugStr x reason)
 
 debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
 debugWithType x reason = debug x (reason ++ " " ++ (show (Typeable.typeOf x)))
-
--- | The AST definition
-data Program = Program Expr deriving (Show, Eq, Read, Data, Typeable)
-data Expr =
-  -- | Control flow
-    For LValue Expr Expr -- TODO: better to pipe into a for loop?
-  | If Expr Expr Expr
-  | Pipe [Expr]
-  | List [Expr] -- the last one is the true value
-
-  -- | Operators
-  | And Expr Expr
-  | Or Expr Expr
-  | Equals Expr Expr
-  | LessThan Expr Expr
-  | GreaterThan Expr Expr
-  | Not Expr
-  | Concat [Expr]
-  -- | Literals
-  | Str String
-  | Integer Int
-  -- | Temporary
-  | Debug String
-  | Nop
-  -- | Functions
-  | FunctionInvocation Expr [Expr]
-  | FunctionDefinition String [FunctionParameter] Expr
-
-  -- | Storage
-  | Variable String
-  | Assignment LValue Expr
-  | Subscript Expr Expr
-
-    deriving (Show, Eq, Read, Data, Typeable)
-
--- TODO: separate or combined definitions of Variables or LHS and RHS, and
--- arrays and hashtables?
-data LValue =   LVar String
-              | AnonVar
-              deriving (Show, Eq, Read, Data, Typeable)
-
-data FunctionParameter = FunctionParameter String
-                         deriving (Show, Eq, Read, Data, Typeable)
 
 
 
