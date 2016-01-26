@@ -256,7 +256,7 @@ convertTest :: [W.Word] -> Expr
 -- I think the correct approach is to parse it, then reparse the words again.
 convertTest ws = case condExpr of
     Left  err -> Debug $ "doesn't parse" ++ (show err) ++ (show hacked)
-    Right e -> (convertCondExpr (convertStrCondExpr2WordCondExpr e))
+    Right e -> convertCondExpr . fmap parseString2Word $ e
     where condExpr = C.parseTestExpr strs
           strs = (map W.unquote hacked)
           hacked = hackTestExpr ws
@@ -270,17 +270,6 @@ hackTestExpr ws@(n:a:rest)
   | n == W.fromString "!" && a == W.fromString "-a" = (n:(W.fromString "-e"):rest)
   | otherwise = ws
 hackTestExpr ws = ws
-
-
--- parseTestExpr gives a CondExpr string, not a CondExpr Word
-convertStrCondExpr2WordCondExpr :: C.CondExpr String -> C.CondExpr W.Word
-convertStrCondExpr2WordCondExpr = csce2wce
-csce2wce :: C.CondExpr String -> C.CondExpr W.Word
-csce2wce (C.Unary uop a) = C.Unary uop (parseString2Word a)
-csce2wce (C.Binary a bop b) = C.Binary (parseString2Word a) bop (parseString2Word b)
-csce2wce (C.Not a) = C.Not (csce2wce a)
-csce2wce (C.And a b) = C.And (csce2wce a) (csce2wce b)
-csce2wce (C.Or a b) = C.Or (csce2wce a) (csce2wce b)
 
 
 -- | Turn lists of Strings or string components into a Str
