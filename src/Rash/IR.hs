@@ -29,6 +29,7 @@ data FunctionParameter = FunctionParameter String
                          deriving (Show, Eq, Read, Data, Typeable)
 
 data Statement = Assignment LValue RValue
+               | Debug String
                  deriving (Show, Eq, Read, Data, Typeable)
 
 data Variable = Var String
