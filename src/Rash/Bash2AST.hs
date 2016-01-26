@@ -62,15 +62,17 @@ convertPipeline (S.Pipeline _ _ _ cs) =
 
 -- | Commands
 convertShellCommand :: S.ShellCommand -> [S.Redir] -> Expr
-convertShellCommand (S.If cond l1 Nothing) [] = If
-                                                (convertList cond)
-                                                (convertList l1)
-                                                (listOrExpr [Nop]) -- TODO: is Maybe nicer here?
+convertShellCommand (S.If cond l1 Nothing) [] =
+    If
+    (convertList cond)
+    (convertList l1)
+    (listOrExpr [Nop]) -- TODO: is Maybe nicer here?
 
-convertShellCommand (S.If cond l1 (Just l2)) [] = If
-                                                  (convertList cond)
-                                                  (convertList l1)
-                                                  (convertList l2)
+convertShellCommand (S.If cond l1 (Just l2)) [] =
+    If
+    (convertList cond)
+    (convertList l1)
+    (convertList l2)
 
 -- TODO: this is the only place that handles heredocs. Everywhere should.
 convertShellCommand (S.SimpleCommand as ws) rs = convertSimpleCommand as (combineHeredoc ws rs)
