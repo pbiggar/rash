@@ -201,7 +201,6 @@ convertCondExpr (C.Binary l C.ArithLE r) = Not (GreaterThan (convertWord l) (con
 convertCondExpr (C.Binary l C.ArithGE r) = Not (LessThan (convertWord l) (convertWord r))
 convertCondExpr (C.Binary l bop r) = FunctionInvocation (Str (bop2FunctionName bop)) [convertWord l, convertWord r]
 
-convertCondExpr e = debugWithType e "ceEmpty"
 
 -- | Function names for BinaryOps
 bop2FunctionName :: C.BinaryOp -> String
