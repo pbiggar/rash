@@ -1,0 +1,6 @@
+[submodule "data/github-markdown-toc"]
+	path = data/github-markdown-toc
+	url = git@github.com:ekalinin/github-markdown-toc
+[submodule "data/bats"]
+	path = data/bats
+	url = git@github.com:sstephenson/bats
