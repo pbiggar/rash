@@ -8,6 +8,7 @@ module Rash.Bash2AST
     ) where
 
 import qualified Language.Bash.Parse as BashParse
+import qualified Language.Bash.Parse.Word
 import qualified Language.Bash.Syntax as S
 import qualified Language.Bash.Word as W
 import qualified Language.Bash.Cond as C
@@ -15,10 +16,9 @@ import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
 import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
+import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
 import Rash.AST
---import qualified Text.Regex.PCRE.Heavy as RE
---import qualified Data.List.Utils as U
 import qualified Data.Maybe as Maybe
 
 
@@ -407,23 +407,10 @@ parseString source =
       Right (Program expr) -> expr
 
 parseString2Word :: String -> W.Word
-parseString2Word w = word
-    where
-      word = case BashParse.parse "source" source of
-            Left err ->
-              error ("nested parse of " ++ source ++ " failed: " ++ (show err))
-            Right (S.List []) -> W.fromString ""
-            Right (S.List
-                   [S.Statement
-                    (S.Last
-                     (S.Pipeline {S.commands=[S.Command
-                                              (S.SimpleCommand [] [x]) []]}))
-                   _]) ->
-              x
-            Right e ->
-              error ("nested parse of " ++ source ++ " was unexpected: " ++ (show e))
-      source = BashPretty.prettyText w
-
+parseString2Word s =
+    case Text.Parsec.parse Language.Bash.Parse.Word.word s s of
+      Left err -> error ("nested parse of " ++ s ++ " failed: " ++ (show err))
+      Right word -> word
 
 translate :: String -> String -> Either ParseError Program
 translate name source =
