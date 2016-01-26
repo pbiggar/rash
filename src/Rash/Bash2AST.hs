@@ -168,6 +168,7 @@ convertString w = case (convertWord w) of
 
 -- TODO: support first class functions?
 convertFunctionCall :: Expr -> [Expr] -> Expr
+-- TODO: convert this into some sort of exception
 convertFunctionCall (Str "set") [(Str "-e")] = Nop
 convertFunctionCall (Str "set") [(Str "+e")] = Nop
 convertFunctionCall name args = FunctionInvocation name args
