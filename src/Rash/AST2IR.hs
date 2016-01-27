@@ -11,4 +11,4 @@ import qualified Rash.AST as A
 import qualified Rash.IR as I
 
 translate :: A.Program -> I.Program
-translate ast = I.Program [] []
+translate _ = I.Program [] []
