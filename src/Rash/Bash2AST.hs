@@ -109,9 +109,7 @@ convertAssign (S.Assign (W.Parameter name _) S.Equals (S.RValue r)) =
   Assignment (LVar name) (convertWord r)
 
 convertAssignOrWord :: Either S.Assign W.Word -> Expr
-convertAssignOrWord (Left a) = convertAssign a
-convertAssignOrWord (Right w) = convertWord w
-
+convertAssignOrWord = either convertAssign convertWord
 
 
 -- | WordLists and Words and Spans
@@ -416,6 +414,4 @@ translateFile file = do
 translateFileToStdout :: String -> IO ()
 translateFileToStdout file = do
   e <- translateFile file
-  case e of
-    Left err -> putStrLn (show err)
-    Right prog -> putStrLn (G.groom prog)
+  putStrLn (either show G.groom e)
