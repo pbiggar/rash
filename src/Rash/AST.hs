@@ -36,11 +36,14 @@ data Expr =
   -- | Literals
   | Str String
   | Integer Int
+
   -- | Temporary
   | Debug String
   | Nop
+
   -- | Functions
   | FunctionInvocation Expr [Expr]
+    -- TODO: move defs into top-level
   | FunctionDefinition String [FunctionParameter] Expr
 
   -- | Storage

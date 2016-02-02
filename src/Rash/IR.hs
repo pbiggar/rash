@@ -11,7 +11,6 @@ module Rash.IR
     , LValue(..)
     , RValue(..)
     , Literal(..)
-
     ) where
 
 import Data.Typeable()
