@@ -35,6 +35,5 @@ testParses file =
 
 fullParseTests :: IO TestTree
 fullParseTests =
-    do test <- testParses "data/github-markdown-toc/gh-md-toc"
-       test2 <- testParses "data/le.sh"
-       return $ testGroup "Parse tests" [test, expectFail test2]
+    do test2 <- testParses "data/le.sh"
+       return $ testGroup "Parse tests" [expectFail test2]
