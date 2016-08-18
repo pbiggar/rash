@@ -17,8 +17,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Rash.Bash2AST
                      , Rash.AST
-                     , Rash.IR
-                     , Rash.AST2IR
   build-depends:       base >= 4.7 && < 5
                      , text
                      , parsec
