@@ -108,6 +108,8 @@ convertAssign :: S.Assign -> Expr
 convertAssign (S.Assign (W.Parameter name _) S.Equals (S.RValue r)) =
   Assignment (LVar name) (convertWord r)
 
+convertAssign a = debug a "convertAssign"
+
 convertAssignOrWord :: Either S.Assign W.Word -> Expr
 convertAssignOrWord = either convertAssign convertWord
 
