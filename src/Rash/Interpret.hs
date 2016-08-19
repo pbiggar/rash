@@ -20,10 +20,33 @@ data Value = VInt Int
            | VArray [Value]
              deriving (Show, Eq)
 
-type Symtable = Map.Map String Value
-type FunctionTable = Map.Map String Expr
-type IState = (Symtable, FunctionTable)
+type SymTable = Map.Map String Value
+type FuncTable = Map.Map String Expr
+data IState = IState {symtable::SymTable, functable::FuncTable} deriving (Show)
 type WithState = State.StateT IState IO Value
+
+getSymTable :: State.StateT IState IO SymTable
+getSymTable = State.gets symtable
+
+getFuncTable :: State.StateT IState IO FuncTable
+getFuncTable = State.gets functable
+
+updateFuncTable :: (FuncTable -> FuncTable) -> State.StateT IState IO ()
+updateFuncTable newTable = do
+  s <- State.get
+  State.put $ s {functable = (newTable (functable s))}
+
+updateSymTable :: (SymTable -> SymTable) -> State.StateT IState IO ()
+updateSymTable newTable = do
+  s <- State.get
+  State.put $ s {symtable = (newTable (symtable s))}
+
+
+findWithDefault :: [a] -> Int -> a -> a
+findWithDefault list index def =
+  if index >= length list
+    then def
+    else list !! index
 
 interpretFile :: FilePath -> [String] -> IO ExitCode
 interpretFile file args = do
@@ -58,36 +81,56 @@ isTruthy (VHash _) = True
 interpret :: Program -> [String] -> IO ExitCode
 interpret program args = do
   let initial = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
-  (val, final) <- State.runStateT (exeProgram program) (initial, Map.empty)
+  (val, final) <- State.runStateT (evalProgram program) (IState initial Map.empty)
   putStr "Final state: "
   print final
   return $ convertToExitCode val
 
-exeProgram :: Program -> WithState
-exeProgram (Program e) = exeExpr e
+evalProgram :: Program -> WithState
+evalProgram (Program e) = evalExpr e
 
-exeExpr :: Expr -> WithState
-exeExpr (List es) = do
-  result <- mapM exeExpr es
+evalExpr :: Expr -> WithState
+evalExpr (List es) = do
+  result <- mapM evalExpr es
   return $ last result
 
-exeExpr Nop = return VNull
+evalExpr Nop = return VNull
 
-exeExpr fd@(FunctionDefinition name _ _) = do
-  s <- State.get
-  State.put (fst s, (Map.insert name fd (snd s)))
+evalExpr fd@(FunctionDefinition name _ _) = do
+  updateFuncTable $ Map.insert name fd
   return VNull
 
-exeExpr (If cond then' else') = do
-  condVal <- exeExpr cond
-  if (isTruthy condVal) then exeExpr then' else exeExpr else'
+evalExpr (If cond then' else') = do
+  condVal <- evalExpr cond
+  if (isTruthy condVal) then evalExpr then' else evalExpr else'
 
-exeExpr (Equals l r) = do
-  lval <- exeExpr l
-  rval <- exeExpr r
+evalExpr (Equals l r) = do
+  lval <- evalExpr l
+  rval <- evalExpr r
   return $ VBool (lval == rval)
 
+evalExpr (Subscript (Variable name) e) = do
+  index <- evalExpr e
+  st <- getSymTable
+  let var = Map.lookup name st
+  return $ case (var, index) of
+    (Just (VArray a), (VInt i)) -> findWithDefault a i VNull
+    (Just (VHash h), (VString s)) -> Map.findWithDefault VNull s h
+    _ -> VTest
 
-exeExpr e = do
+evalExpr (Assignment (LVar name) e) = do
+  e <- evalExpr e
+  updateSymTable $ Map.insert name e
+  return e
+
+
+
+evalExpr (Integer i) = return $ VInt i
+evalExpr (Str i) = return $ VString i
+
+
+
+
+evalExpr e = do
   liftIO $ print e
   return $ VTest
