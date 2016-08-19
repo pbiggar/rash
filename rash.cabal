@@ -24,6 +24,8 @@ library
                      , language-bash
                      , groom
                      , uniplate
+                     , transformers
+                     , containers
 
   default-language:    Haskell2010
 
