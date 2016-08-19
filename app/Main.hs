@@ -7,6 +7,6 @@ import Rash.Interpret
 
 main :: IO ()
 main = do
-  (scriptname:_) <- getArgs
-  exitCode <- interpretFile scriptname
+  (scriptname:args) <- getArgs
+  exitCode <- interpretFile scriptname args
   Exit.exitWith exitCode
