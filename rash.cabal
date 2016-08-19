@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Rash.Bash2AST
                      , Rash.AST
+                     , Rash.Interpret
   build-depends:       base >= 4.7 && < 5
                      , text
                      , parsec
@@ -41,6 +42,7 @@ test-suite rash-test
   other-modules:       Rash.Test.TestAST
   build-depends:       base
                      , rash
+                     , silently
                      , parsec
                      , tasty
                      , tasty-hunit
