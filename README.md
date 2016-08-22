@@ -1,9 +1,7 @@
 # Rash - the Rebourne Again SHell
 
 
-Rash is a shell scripting language intended to replace bash.
-Its goal is to allow simple, readable, understandable and secure shell scripting.
-In particular, it aims at the niche currently occupied by Bash programs, and specifically aims to address problems in bash and with bash programs.
+Rash is a shell scripting language intended to replace bash. Its goal is to allow simple, readable, understandable and secure shell scripting. In particular, it aims at the niche currently occupied by Bash programs, and specifically aims to address problems in bash and with bash programs.
 
 In particular, the goal is to make it easy to write 5-500 line scripts that mostly involve string handling, filesystem manipulation, and calling other programs.
 
@@ -26,9 +24,7 @@ Rash was created after frustration with trying to create a set of readable and w
 ### Be easy to read
 
 
-Bash is hard to read and understand.
-It uses obscure idioms (eg [[ vs [,), and has no (or many) sets of best practices.
-While not as "write-only" as perl, it certainly requires a trained eye to read it and to understand it.
+Bash is hard to read and understand. It uses obscure idioms (eg [[ vs [,), and has no (or many) sets of best practices. While not as "write-only" as perl, it certainly requires a trained eye to read it and to understand it.
 
 Rash aims to be readable to somebody who has never seen a rash script before.
 
@@ -36,8 +32,7 @@ Rash aims to be readable to somebody who has never seen a rash script before.
 
 ### Be easy to write
 
-There are many things that are hard to do in bash, or that don't have a simple idiomatic solution.
-Many things that you would consider language builtins (and are in other languages) missing, or are supposed to be provided by other unix programs (such as awk, sed, bc, curl, grep or jq)
+There are many things that are hard to do in bash, or that don't have a simple idiomatic solution. Many things that you would consider language builtins (and are in other languages) missing, or are supposed to be provided by other unix programs (such as awk, sed, bc, curl, grep or jq)
 
 - storing and sharing data (have you seen the syntax for array and hashtable operations?)
 - regex operations (bash 4 has reasonable regex, but it's not PCRE; sed is awful)
@@ -55,8 +50,7 @@ It should be straightforward to write Rash programs.
 ### Be harder to make mistakes in
 
 
-Bash is very easy to make mistakes in, especially security mistakes.
-There are two types of flaws that are super common:
+Bash is very easy to make mistakes in, especially security mistakes. There are two types of flaws that are super common:
 - failure to properly read and write to variables,
 - failure to handle errors in pipes.
 
@@ -69,24 +63,21 @@ Finally, Rash aims to include tools that check and validate programs, to help th
 
 ### Be easy to convert your bash scripts into rash
 
-Rash will be no good if only new programs can be written in it.
-We intend to provide a tool to convert Bash programs into Rash programs.
+Rash will be no good if only new programs can be written in it. We intend to provide a tool to convert Bash programs into Rash programs.
 
 
 ### Be easy to convert your rash scripts into something else
 
-You know when you have a 300 line bash script and it starts to get unwieldy and you wish you'd used python from the start?
-Hopefully we're be able to automatically translate rash scripts into mostly-equivalent python scripts, should you need then to grow beyond their original purpose.
+You know when you have a 300 line bash script and it starts to get unwieldy and you wish you'd used python from the start? Hopefully we're be able to automatically translate rash scripts into mostly-equivalent python scripts, should you need then to grow beyond their original purpose.
 
 
 ### Be modern
 
-Lastly, Bash is aimed at the programs we want to write in 2015, not the programs from 1980.
-It has native support for JSON, HTTP, integers(!), hashtables, arrays, streams, and string operations.
-A little bit of batteries included will go a long way.
+Lastly, Bash is aimed at the programs we want to write in 2015, not the programs from 1980. It has native support for JSON, HTTP, integers(!), hashtables, arrays, streams, and string operations. A little bit of batteries included will go a long way.
 
 
 ## Lessor goals
+
 rash should
 - be easy to distribute (static binaries only)
 - be portable
@@ -95,13 +86,82 @@ rash should
 
 ## Non-goals
 
-- to be useful as an inteactive shell (for now, maybe later, once I figure out what that really means)
+- to be useful as an interactive shell (for now, maybe later, once I figure out what that really means)
 - to be syntactically similar to bash (as bash did to sh)
 - to stick strictly to unixisms such as "do one thing well"
 - to be useful for large programs
- - to have a standard library
 - to compete with python, perl, ruby, node, etc
 - to be "pure" in some sense (eg a lovely functional language)
+
+
+## Language design
+
+### The pipe is the fundamental unit
+
+Bash makes it super easy to pipe programs together. The fundamental intuition that allowed me understand functions in bash was that they are simply programs, that is:
+- you pass them data via stdin
+- you get output via stdout
+- the return value is an exit code
+- parameters are akin to command line arguments
+
+And so it will be in rash.
+
+
+### No library facility
+
+Only the code in the file is executed, and there should be no way to import code. If you need to import code, your program is already outside the scope of rash.
+
+Avoids all sorts of problems:
+- package manager
+- import facilities (and library paths, etc, etc)
+- allows to be entirely typechecked
+- how to install scripts
+
+Of course, you can always extend rash by writing programs. The whole point, afterall, is to pipe together other programs. Don't write modules, write other programs (which can also be rash, I guess).
+
+
+### Batteries included
+
+Since you can't import libraries, the stdlib should be good.
+
+Obvious inclusions:
+- http support
+- json support
+- integer and float support
+- string manipulation
+- hashtable and array support
+- regex (perl-compatible, of course)
+- job control
+- filesystem stuff
+
+These should replace using any of the shell tools that suck or are difficult to use, include sed, awk, expr, bc, and dc. It should also include facilities from amazing tools like curl and jq, which make sense to be part of the language.
+
+### Built-in analytics / exception reporting
+
+It is important to know how your scripts are being used, so that you have better information on how to write them. In the web world, analytics and exception reporting are very useful for this. There should be built-in, optional, support for analytics and exception reporting.
+
+Obviously, it should go without saying that there are security and privacy concerns here, which must be taken into account in the design. Script authors, and the users of those scripts, should be able to limit what is sent, including sending nothing at all.
+
+
+### Static checking without type signatures
+
+It is very useful to have static checking, but often hard to do so. In particular, static checking often requires adding type signatures, which is boring, especially for a language aimed at small scripts.
+
+However, because the programs you write in rash are small, it should be possible to quickly typecheck them, even without type signatures. This will catch obvious errors, and provide a level of security that, at the very least, the structure of your program is correct.
+
+### Versioning
+
+Backward compatibility is a serious concern. Often, that concern holds back languages and prevents them from innovating and making things better for their users.
+
+To combat this, rash will have versioning built-in. You can (and should) specify the version of rash that your program was developed with. All versions of bash will check for this, and if the version is different, will automatically download the correct version and run the script with that.
+
+(Of course, the security conscious folks will be able to disable this, or manually approve it, or something)
+
+
+### Streams
+
+In bash, often multiple programs are working simultaneously, processing the output of one command before that command has finished. That's great. We should do that too.
+
 
 
 ## Language notes
