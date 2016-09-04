@@ -34,12 +34,12 @@ getFuncTable = State.gets functable
 updateFuncTable :: (FuncTable -> FuncTable) -> State.StateT IState IO ()
 updateFuncTable newTable = do
   s <- State.get
-  State.put $ s {functable = (newTable (functable s))}
+  State.put $ s {functable = newTable (functable s)}
 
 updateSymTable :: (SymTable -> SymTable) -> State.StateT IState IO ()
 updateSymTable newTable = do
   s <- State.get
-  State.put $ s {symtable = (newTable (symtable s))}
+  State.put $ s {symtable = newTable (symtable s)}
 
 
 findWithDefault :: [a] -> Int -> a -> a
@@ -51,15 +51,13 @@ findWithDefault list index def =
 interpretFile :: FilePath -> [String] -> IO ExitCode
 interpretFile file args = do
   result <- translateFile file
-  exitCode <-
-    if Either.isRight result
-      then
-        let (Right program) = result
-        in interpret program args
-      else do
-        putStrLn "Failed to parse"
-        return $ Exit.ExitFailure (-1)
-  return $ exitCode
+  if Either.isRight result
+    then
+      let (Right program) = result
+      in interpret program args
+    else do
+      putStrLn "Failed to parse"
+      return $ Exit.ExitFailure (-1)
 
 convertToExitCode :: Value -> ExitCode
 convertToExitCode (VInt i) = if i == 0 then Exit.ExitSuccess else Exit.ExitFailure i
@@ -102,7 +100,7 @@ evalExpr fd@(FunctionDefinition name _ _) = do
 
 evalExpr (If cond then' else') = do
   condVal <- evalExpr cond
-  if (isTruthy condVal) then evalExpr then' else evalExpr else'
+  if isTruthy condVal then evalExpr then' else evalExpr else'
 
 evalExpr (Equals l r) = do
   lval <- evalExpr l
@@ -114,8 +112,8 @@ evalExpr (Subscript (Variable name) e) = do
   st <- getSymTable
   let var = Map.lookup name st
   return $ case (var, index) of
-    (Just (VArray a), (VInt i)) -> findWithDefault a i VNull
-    (Just (VHash h), (VString s)) -> Map.findWithDefault VNull s h
+    (Just (VArray a), VInt i) -> findWithDefault a i VNull
+    (Just (VHash h), VString s) -> Map.findWithDefault VNull s h
     _ -> VTest
 
 evalExpr (Assignment (LVar name) e) = do
@@ -133,4 +131,4 @@ evalExpr (Str i) = return $ VString i
 
 evalExpr e = do
   liftIO $ print e
-  return $ VTest
+  return VTest

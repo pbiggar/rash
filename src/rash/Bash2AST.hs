@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, FlexibleContexts, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Rash.Bash2AST
     ( translateFileToStdout
@@ -24,13 +24,13 @@ import qualified Data.Maybe as Maybe
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
-debugStr x reason = "TODO (" ++ reason ++ ") - " ++ (BashPretty.prettyText x) ++ " - " ++ (show x)
+debugStr x reason = "TODO (" ++ reason ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
 
 debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
 debug x reason = Debug (debugStr x reason)
 
 debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
-debugWithType x reason = debug x (reason ++ " " ++ (show (Typeable.typeOf x)))
+debugWithType x reason = debug x (reason ++ " " ++ show (Typeable.typeOf x))
 
 
 
@@ -42,7 +42,7 @@ convertList (S.List stmts) =
 
 listOrExpr :: [Expr] -> Expr
 listOrExpr [] = Nop
-listOrExpr (e:[]) = e
+listOrExpr [e] = e
 listOrExpr es = List es
 
 -- | Pipelines
@@ -52,7 +52,7 @@ convertAndOr (S.And p ao) = And (convertPipeline p) (convertAndOr ao)
 convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
 
 listOrPipe :: [Expr] -> Expr
-listOrPipe (e:[]) = e
+listOrPipe [e] = e
 listOrPipe es = Pipe es
 
 convertPipeline :: S.Pipeline -> Expr
@@ -78,7 +78,7 @@ convertShellCommand (S.If cond l1 (Just l2)) [] =
 convertShellCommand (S.SimpleCommand as ws) rs = convertSimpleCommand as (combineHeredoc ws rs)
 
 convertShellCommand (S.AssignBuiltin w es) []
-    | w == (W.fromString "local") = listOrExpr (map convertAssignOrWord es)
+    | w == W.fromString "local" = listOrExpr (map convertAssignOrWord es)
     | otherwise = debugWithType w "ccscab"
 
 convertShellCommand (S.Cond e) [] = convertCondExpr e
@@ -94,13 +94,13 @@ convertShellCommand (S.While expr cmds) [] =
 convertShellCommand (S.Group list) [] =
     convertList list
 
-convertShellCommand x rs = debugWithType x ("cc" ++ (show rs))
+convertShellCommand x rs = debugWithType x $ "cc" ++ show rs
 
 
 -- | SimpleCommands (assignments)
 convertSimpleCommand :: [S.Assign] -> [W.Word] -> Expr
 convertSimpleCommand as [] = listOrExpr (map convertAssign as)
-convertSimpleCommand as ws = listOrExpr ((map convertAssign as) ++ [(convertWords ws)])
+convertSimpleCommand as ws = listOrExpr (map convertAssign as ++ [convertWords ws])
 
 -- TODO: parameter doesn't take subscript
 -- TODO: assignment doesn't handle +=
@@ -116,7 +116,7 @@ convertAssignOrWord = either convertAssign convertWord
 
 -- | WordLists and Words and Spans
 convertWordList :: S.WordList -> Expr
-convertWordList S.Args = (Str "$@") -- TODO
+convertWordList S.Args = Str "$@" -- TODO
 convertWordList (S.WordList wl) = listOrExpr (map convertWord wl)
 
 
@@ -136,22 +136,22 @@ convertSpan (W.Double w) = cConcat [convertWord w]
 convertSpan (W.Single w) = cConcat [convertWord w]
 convertSpan (W.Escape c) = Str [c]
 convertSpan (W.CommandSubst c) = parseString c
-convertSpan (W.ParamSubst (W.Brace {W.indirect = False,
-                                    W.parameter = (W.Parameter p Nothing)}))
+convertSpan (W.ParamSubst W.Brace {W.indirect = False,
+                                    W.parameter = (W.Parameter p Nothing)})
     = Variable p
-convertSpan (W.ParamSubst (W.Length {W.parameter = (W.Parameter p Nothing)}))
-    = FunctionInvocation (Str "string.length") [(Variable p)]
-convertSpan (W.ParamSubst (W.Bare {W.parameter = (W.Parameter p Nothing)}))
+convertSpan (W.ParamSubst W.Length {W.parameter = (W.Parameter p Nothing)})
+    = FunctionInvocation (Str "string.length") [Variable p]
+convertSpan (W.ParamSubst W.Bare {W.parameter = (W.Parameter p Nothing)})
     = Variable p
-convertSpan (W.ParamSubst (W.Delete {W.indirect = False,
-                                     W.parameter = (W.Parameter p Nothing),
-                                     W.longest = longest,
-                                     W.deleteDirection = direction,
-                                     W.pattern = pattern}))
+convertSpan (W.ParamSubst W.Delete {W.indirect = False
+                                  , W.parameter = (W.Parameter p Nothing)
+                                  , W.longest = longest
+                                  , W.deleteDirection = direction
+                                  , W.pattern = pattern })
     = FunctionInvocation (Str ("string." ++ name)) args
       where
         name = if direction == W.Front then "replace_front" else "replace_back"
-        args = [(Variable p), (convertWord pattern)] ++ longestArgs
+        args = [Variable p, convertWord pattern] ++ longestArgs
         longestArgs = if longest then [] else [Str "--nongreedy"]
                       -- TODO: indirect?
 
@@ -162,15 +162,15 @@ convertSpan w = debugWithType w "cs"
 
 -- like convertWord but we expect a string
 convertString :: W.Word -> String
-convertString w = case (convertWord w) of
-                    (Str s) -> s
-                    _ -> "TODO - couldnt get a string out of " ++ (show w)
+convertString w = case convertWord w of
+                    Str s -> s
+                    _ -> "TODO - couldnt get a string out of " ++ show w
 
 -- TODO: support first class functions?
 convertFunctionCall :: Expr -> [Expr] -> Expr
 -- TODO: convert this into some sort of exception
-convertFunctionCall (Str "set") [(Str "-e")] = Nop
-convertFunctionCall (Str "set") [(Str "+e")] = Nop
+convertFunctionCall (Str "set") [Str "-e"] = Nop
+convertFunctionCall (Str "set") [Str "+e"] = Nop
 convertFunctionCall name args = FunctionInvocation name args
 
 
@@ -178,10 +178,10 @@ convertFunctionCall name args = FunctionInvocation name args
 -- | Heredocs
 combineHeredoc :: [W.Word] -> [S.Redir] -> [W.Word]
 combineHeredoc ws rs = ws ++ ns
-    where ns = Maybe.catMaybes $ map hd2word rs
+    where ns = Maybe.mapMaybe hd2word rs
 
 hd2word :: S.Redir -> Maybe W.Word
-hd2word (S.Heredoc {S.hereDocument=hd}) = Just hd
+hd2word S.Heredoc {S.hereDocument=hd} = Just hd
 hd2word _ = Nothing
 
 -- | CondExprs
@@ -256,10 +256,10 @@ convertTest :: [W.Word] -> Expr
 
 -- I think the correct approach is to parse it, then reparse the words again.
 convertTest ws = case condExpr of
-    Left  err -> Debug $ "doesn't parse" ++ (show err) ++ (show hacked)
+    Left  err -> Debug $ "doesn't parse" ++ show err ++ show hacked
     Right e -> convertCondExpr . fmap parseString2Word $ e
     where condExpr = C.parseTestExpr strs
-          strs = (map W.unquote hacked)
+          strs = map W.unquote hacked
           hacked = hackTestExpr ws
 
 
@@ -268,15 +268,15 @@ hackTestExpr :: [W.Word] -> [W.Word]
 -- [ -a asd ] works, but [ ! -a asd] doesnt because -a is the "and" operator. -e
 -- does the same though.
 hackTestExpr ws@(n:a:rest)
-  | n == W.fromString "!" && a == W.fromString "-a" = (n:(W.fromString "-e"):rest)
+  | n == W.fromString "!" && a == W.fromString "-a" = n : W.fromString "-e" : rest
   | otherwise = ws
 hackTestExpr ws = ws
 
 
 -- | Turn lists of Strings or string components into a Str
 foldStrs :: [Expr] -> [Expr]
-foldStrs ((Str a) : (Str b) : ss) = foldStrs ((Str (a ++ b)) : ss)
-foldStrs (s : ss) = (s : foldStrs ss)
+foldStrs (Str a : Str b : ss) = foldStrs (Str (a ++ b) : ss)
+foldStrs (s : ss) = s : foldStrs ss
 foldStrs ss = ss
 
 cConcat :: [Expr] -> Expr
@@ -284,7 +284,7 @@ cConcat es = cConcat0 (foldStrs es)
 
 cConcat0 :: [Expr] -> Expr
 cConcat0 [] = Str ""
-cConcat0 (e:[]) = e
+cConcat0 [e] = e
 cConcat0 es = Concat es
 
 -- | Perform transformations across the AST (everywhere)
@@ -321,12 +321,12 @@ postProcess = transformBi f
       f (Variable "9") = Subscript (Variable "sys.argv") (Integer 9)
       -- | Convert $# to sys.argv.length
       -- | Convert $@ to sys.argv
-      f (Variable "#") = FunctionInvocation (Str "length") [(Variable "sys.argv")]
+      f (Variable "#") = FunctionInvocation (Str "length") [Variable "sys.argv"]
       f (Variable "@") = Variable "sys.argv"
 
       f x = x
 
-      convertExitArg (Str v) = (Integer (read v :: Int))
+      convertExitArg (Str v) = Integer (read v :: Int)
       convertExitArg v = v
 
 
@@ -393,13 +393,13 @@ parseWord word = parseString (W.unquote word)
 parseString :: String -> Expr
 parseString source =
     case translate "src" source of
-      Left err -> error ("nested parse of " ++ source ++ " failed: " ++ (show err))
+      Left err -> error ("nested parse of " ++ source ++ " failed: " ++ show err)
       Right (Program expr) -> expr
 
 parseString2Word :: String -> W.Word
 parseString2Word s =
     case Text.Parsec.parse Language.Bash.Parse.Word.word s s of
-      Left err -> error ("nested parse of " ++ s ++ " failed: " ++ (show err))
+      Left err -> error ("nested parse of " ++ s ++ " failed: " ++ show err)
       Right word -> word
 
 translate :: String -> String -> Either ParseError Program

@@ -1,4 +1,5 @@
-{-# LANGUAGE QuasiQuotes, FlexibleContexts, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Rash.AST
     ( Expr(..)
