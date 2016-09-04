@@ -8,7 +8,7 @@ license-file:        LICENSE
 author:              Paul Biggar
 maintainer:          paul.biggar@gmail.com
 copyright:           2016 Paul Biggar
-category:            Web
+category:            Lanauge
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
@@ -31,7 +31,6 @@ library
 executable rash-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , rash
   default-language:    Haskell2010
@@ -50,8 +49,6 @@ test-suite rash-test
                      , tasty-expected-failure
                      , uniplate
                      , language-bash
-
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
 source-repository head
