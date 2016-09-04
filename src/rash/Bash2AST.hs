@@ -12,7 +12,7 @@ import qualified Language.Bash.Word as W
 import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
-import qualified Text.Groom as G ()
+import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
