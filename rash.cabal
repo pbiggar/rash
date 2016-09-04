@@ -8,7 +8,7 @@ license-file:        LICENSE
 author:              Paul Biggar
 maintainer:          paul.biggar@gmail.com
 copyright:           2016 Paul Biggar
-category:            Lanauge
+category:            Language
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
@@ -17,7 +17,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Rash.Bash2AST
                      , Rash.AST
-                     , Rash.Interpret
+                     , Rash.Interpreter
+                     , Rash.Repl
+                     , Rash.Runner
   build-depends:       base >= 4.7 && < 5
                      , text
                      , parsec

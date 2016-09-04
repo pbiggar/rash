@@ -1,12 +1,18 @@
 module Main where
 
-import System.Environment(getArgs)
+import System.Environment as Env
 import qualified System.Exit as Exit
 
-import Rash.Interpret
+import qualified Rash.Runner as Runner
+import qualified Rash.Repl as Repl
 
 main :: IO ()
 main = do
-  (scriptname:args) <- getArgs
-  exitCode <- interpretFile scriptname args
+  args <- Env.getArgs
+  let (scriptname : clArgs) = args
+  exitCode <-
+    if 0 == length args
+    then do Repl.runRepl
+            return $ Exit.ExitSuccess
+    else Runner.runFile scriptname clArgs
   Exit.exitWith exitCode

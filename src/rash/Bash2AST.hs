@@ -1,9 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Rash.Bash2AST
-    ( translateFileToStdout
-    , translateFile
-    , translate
+    ( translate
     , convertList
     ) where
 
@@ -14,7 +12,7 @@ import qualified Language.Bash.Word as W
 import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
-import qualified Text.Groom as G
+import qualified Text.Groom as G ()
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
@@ -407,13 +405,3 @@ translate name source =
     case BashParse.parse name source of
       Left err -> Left err
       Right ans -> Right (postProcess (Program (convertList ans)))
-
-translateFile :: String -> IO (Either ParseError Program)
-translateFile file = do
-  src <- readFile file
-  return (translate file src)
-
-translateFileToStdout :: String -> IO ()
-translateFileToStdout file = do
-  e <- translateFile file
-  putStrLn (either show G.groom e)

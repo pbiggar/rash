@@ -9,7 +9,7 @@ import           System.Exit
 
 --import qualified Rash.Bash2AST as Bash2AST
 --import qualified Rash.Test.TestAST as TestAST
-import qualified Rash.Interpret as Interpret
+import qualified Rash.Runner as Runner
 -- import qualified Rash.Test.TestIR as TestIR
 --import qualified Rash.AST as AST
 
@@ -34,7 +34,7 @@ testRuns filename expectedCode expectedOutput = let
     checkOutputExpected output = expectedOutput @=? output
     checkCodeExpected   code =   expectedCode @=? code
     in do
-        (captured, exitCode) <- capture $ Interpret.interpretFile filename []
+        (captured, exitCode) <- capture $ Runner.runFile filename []
         return $ testCaseSteps ("Interpreter test: " ++ filename) $ \step -> do
             step "check output"
             checkOutputExpected captured

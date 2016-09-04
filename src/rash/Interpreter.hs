@@ -1,14 +1,10 @@
-module Rash.Interpret where
+module Rash.Interpreter where
 
-import System.Exit (ExitCode)
-
-import Rash.Bash2AST (translateFile)
-import Rash.AST
-import qualified Data.Either as Either
 import qualified Data.Map.Strict as Map
-import qualified System.Exit as Exit
 import qualified Control.Monad.Trans.State as State
-import Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (liftIO)
+
+import Rash.AST
 
 data Value = VInt Int
            | VString String
@@ -48,20 +44,12 @@ findWithDefault list index def =
     then def
     else list !! index
 
-interpretFile :: FilePath -> [String] -> IO ExitCode
-interpretFile file args = do
-  result <- translateFile file
-  if Either.isRight result
-    then
-      let (Right program) = result
-      in interpret program args
-    else do
-      putStrLn "Failed to parse"
-      return $ Exit.ExitFailure (-1)
-
-convertToExitCode :: Value -> ExitCode
-convertToExitCode (VInt i) = if i == 0 then Exit.ExitSuccess else Exit.ExitFailure i
-convertToExitCode _ = Exit.ExitSuccess
+interpret :: Program -> [String] -> IO Value
+interpret program args = do
+  let initial = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
+  (val, final) <- State.runStateT (evalProgram program) (IState initial Map.empty)
+  putStrLn $ "Final state: " ++ show final
+  return val
 
 isTruthy :: Value -> Bool
 isTruthy (VString _) = True
@@ -76,13 +64,6 @@ isTruthy (VArray _) = True
 isTruthy (VHash _) = True
 
 
-interpret :: Program -> [String] -> IO ExitCode
-interpret program args = do
-  let initial = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
-  (val, final) <- State.runStateT (evalProgram program) (IState initial Map.empty)
-  putStr "Final state: "
-  print final
-  return $ convertToExitCode val
 
 evalProgram :: Program -> WithState
 evalProgram (Program e) = evalExpr e
