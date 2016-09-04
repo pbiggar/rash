@@ -4,19 +4,23 @@
 resolver: lts-4.2
 
 # Local packages, usually specified by relative directory name
-packages:
-- '.'
+# packages:
+# - '.'
 # - location: '../language-bash'
 #   extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
-extra-deps: [groom-0.1.2, missingh-1.3.0.1, tasty-expected-failure-0.11.0.3, language-bash-0.6.1]
+extra-deps:
+  - groom-0.1.2
+  - missingh-1.3.0.1
+  - tasty-expected-failure-0.11.0.3
+  - language-bash-0.6.1
 
 # Override default flag values for local packages and extra-deps
-flags: {}
+# flags: {}
 
 # Extra package databases containing global packages
-extra-package-dbs: []
+# extra-package-dbs: []
 
 ghc-options:
   "*": -Wall

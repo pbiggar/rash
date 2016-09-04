@@ -26,7 +26,6 @@ library
                      , uniplate
                      , transformers
                      , containers
-
   default-language:    Haskell2010
 
 executable rash-exe
