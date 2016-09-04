@@ -24,7 +24,7 @@ runSource :: String -> String -> [String] -> IO Exit.ExitCode
 runSource name source args = do
   Either.either
     (\err -> (do
-                (putStr $ show err)
+                (putStrLn $ show err)
                 return $ Exit.ExitFailure (-1)))
     ((flip runProgram) args)
     (Bash2AST.translate name source)

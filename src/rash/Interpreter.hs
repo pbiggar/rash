@@ -3,6 +3,8 @@ module Rash.Interpreter where
 import qualified Data.Map.Strict as Map
 import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
+import qualified System.Exit as Exit
+import qualified System.Cmd as Cmd
 
 import Rash.AST
 
@@ -14,6 +16,7 @@ data Value = VInt Int
            | VTest
            | VHash (Map.Map String Value)
            | VArray [Value]
+           | VPacket Exit.ExitCode -- TODO stdout and stderr as streams
              deriving (Show, Eq)
 
 type SymTable = Map.Map String Value
@@ -44,11 +47,14 @@ findWithDefault list index def =
     then def
     else list !! index
 
+debug ::Show a => a -> IO ()
+debug x = putStrLn $ "Debug: " ++ show x
+
 interpret :: Program -> [String] -> IO Value
 interpret program args = do
   let initial = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
   (val, final) <- State.runStateT (evalProgram program) (IState initial Map.empty)
-  putStrLn $ "Final state: " ++ show final
+  debug $ "Final state: " ++ show final
   return val
 
 isTruthy :: Value -> Bool
@@ -62,7 +68,7 @@ isTruthy VNull = False
 isTruthy VTest = False
 isTruthy (VArray _) = True
 isTruthy (VHash _) = True
-
+isTruthy (VPacket _) = error "should vpacket be truthy?"
 
 
 evalProgram :: Program -> WithState
@@ -102,14 +108,28 @@ evalExpr (Assignment (LVar name) e) = do
   updateSymTable $ Map.insert name result
   return result
 
-
+evalExpr (FunctionInvocation name args) = do
+  fn <- evalExpr name
+  evaledArgs <- mapM evalExpr args
+  code <- liftIO $ runFunction fn evaledArgs
+  return $ code
 
 evalExpr (Integer i) = return $ VInt i
 evalExpr (Str i) = return $ VString i
 
 
-
-
 evalExpr e = do
-  liftIO $ print e
+  liftIO $ debug "an unsupported expression was found"
+  liftIO $ debug e
+  _ <- error "ending early"
   return VTest
+
+
+runFunction :: Value -> [Value] -> IO Value
+runFunction fn args = do
+  code <- case fn of
+            VString str -> do
+                  debug $ "Calling function: " ++ str ++ show args
+                  Cmd.rawSystem str (map show args)
+            _ -> return $ Exit.ExitFailure (-1)
+  return $ VPacket code
