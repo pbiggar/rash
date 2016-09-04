@@ -119,9 +119,9 @@ evalExpr (Subscript (Variable name) e) = do
     _ -> VTest
 
 evalExpr (Assignment (LVar name) e) = do
-  e <- evalExpr e
-  updateSymTable $ Map.insert name e
-  return e
+  result <- evalExpr e
+  updateSymTable $ Map.insert name result
+  return result
 
 
 
