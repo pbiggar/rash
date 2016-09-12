@@ -106,6 +106,11 @@ Bash makes it super easy to pipe programs together. The fundamental intuition th
 
 And so it will be in rash.
 
+In addition, Rash allows you to consume more than just a text stream from the previous program in the pipe:
+- stdin can be a stream of objects. The previous process/function would call `send` instead of `print`.
+ - an example what this allows is built-in jq-like functionality
+- when a program ends, the stdin, stderr and exit code are all available to the next process in the pipe
+ - you could use this to swallow errors without special syntax
 
 ### No library facility
 
@@ -114,20 +119,20 @@ Only the code in the file is executed, and there should be no way to import code
 Avoids all sorts of problems:
 - package manager
 - import facilities (and library paths, etc, etc)
-- allows to be entirely typechecked
-- how to install scripts
+- allows the entire program be typechecked
+- make it easy to turn scripts into static binaries
 
-Of course, you can always extend rash by writing programs. The whole point, afterall, is to pipe together other programs. Don't write modules, write other programs (which can also be rash, I guess).
+Of course, you can always extend rash by writing programs. The whole point, after all, is to pipe together other programs. Don't write modules, write other programs (which could also be written in Rash).
 
 
 ### Batteries included
 
-Since you can't import libraries, the stdlib should be good.
+Since you can't import libraries, the stdlib should be really good.
 
 Obvious inclusions:
 - http support
 - json support
-- integer and float support
+- integer (bigints?) and float support
 - string manipulation
 - hashtable and array support
 - regex (perl-compatible, of course)
@@ -142,6 +147,20 @@ It is important to know how your scripts are being used, so that you have better
 
 Obviously, it should go without saying that there are security and privacy concerns here, which must be taken into account in the design. Script authors, and the users of those scripts, should be able to limit what is sent, including sending nothing at all.
 
+There are a ton of wonderful applications here:
+- send a stack trace to the developer when the program errors for a user
+- understand who is using your script (eg in corporate environments)
+- know, broadly, what command-lines are rarely used
+  - perhaps that feature should be documented better
+  - if no-one uses that feature maybe you can kill it
+- what commands lead to crashes most often
+
+Of course, we can use this to develop rash too, by running analytics on:
+- what syntax errors are most commonly
+- do developers immediately solve those errors (if not, we can improve the error)
+  - what countries are most rash developers on (or what locales do they use)
+    - allows us to focus documentation on those languages
+  - when are
 
 ### Static checking without type signatures
 
