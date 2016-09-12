@@ -28,7 +28,7 @@ library
                      , uniplate
                      , transformers
                      , containers
-                     , process
+                     , process >= 1.4.2.0
   default-language:    Haskell2010
 
 executable rash-exe
