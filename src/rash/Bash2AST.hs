@@ -46,8 +46,8 @@ listOrExpr es = List es
 -- | Pipelines
 convertAndOr :: S.AndOr -> Expr
 convertAndOr (S.Last p) = convertPipeline p
-convertAndOr (S.And p ao) = And (convertPipeline p) (convertAndOr ao)
-convertAndOr (S.Or p ao) = Or (convertPipeline p) (convertAndOr ao)
+convertAndOr (S.And p ao) = Binop (convertPipeline p) And (convertAndOr ao)
+convertAndOr (S.Or p ao) = Binop (convertPipeline p) And (convertAndOr ao)
 
 listOrPipe :: [Expr] -> Expr
 listOrPipe [e] = e
@@ -114,7 +114,7 @@ convertAssignOrWord = either convertAssign convertWord
 
 -- | WordLists and Words and Spans
 convertWordList :: S.WordList -> Expr
-convertWordList S.Args = Str "$@" -- TODO
+convertWordList S.Args = Debug "$@" -- TODO
 convertWordList (S.WordList wl) = listOrExpr (map convertWord wl)
 
 
@@ -184,20 +184,20 @@ hd2word _ = Nothing
 
 -- | CondExprs
 convertCondExpr :: C.CondExpr W.Word -> Expr
-convertCondExpr (C.Not e) = Not (convertCondExpr e)
-convertCondExpr (C.And a b) = And (convertCondExpr a) (convertCondExpr b)
-convertCondExpr (C.Or a b) = Or (convertCondExpr a) (convertCondExpr b)
+convertCondExpr (C.Not e) = Unop Not (convertCondExpr e)
+convertCondExpr (C.And a b) = Binop (convertCondExpr a) And (convertCondExpr b)
+convertCondExpr (C.Or a b) = Binop (convertCondExpr a) Or (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
     FunctionInvocation (Str (uop2FunctionName uop)) [convertWord w]
-convertCondExpr (C.Binary l C.StrEQ r) = Equals (convertWord l) (convertWord r)
-convertCondExpr (C.Binary l C.ArithEQ r) = Equals (convertWord l) (convertWord r)
-convertCondExpr (C.Binary l C.StrNE r) = Not (Equals (convertWord l) (convertWord r))
-convertCondExpr (C.Binary l C.ArithNE r) = Not (Equals (convertWord l) (convertWord r))
-convertCondExpr (C.Binary l C.StrLT r) = LessThan (convertWord l) (convertWord r)
-convertCondExpr (C.Binary l C.ArithLT r) = LessThan (convertWord l) (convertWord r)
-convertCondExpr (C.Binary l C.StrGT r) = GreaterThan (convertWord l) (convertWord r)
-convertCondExpr (C.Binary l C.ArithLE r) = Not (GreaterThan (convertWord l) (convertWord r))
-convertCondExpr (C.Binary l C.ArithGE r) = Not (LessThan (convertWord l) (convertWord r))
+convertCondExpr (C.Binary l C.StrEQ r) = Binop (convertWord l) Equals (convertWord r)
+convertCondExpr (C.Binary l C.ArithEQ r) = Binop (convertWord l) Equals (convertWord r)
+convertCondExpr (C.Binary l C.StrNE r) = Unop Not (Binop (convertWord l) Equals (convertWord r))
+convertCondExpr (C.Binary l C.ArithNE r) = Unop Not (Binop (convertWord l) Equals (convertWord r))
+convertCondExpr (C.Binary l C.StrLT r) = Binop (convertWord l) LessThan (convertWord r)
+convertCondExpr (C.Binary l C.ArithLT r) = Binop (convertWord l) LessThan (convertWord r)
+convertCondExpr (C.Binary l C.StrGT r) = Binop (convertWord l) GreaterThan (convertWord r)
+convertCondExpr (C.Binary l C.ArithLE r) = Unop Not (Binop (convertWord l) GreaterThan (convertWord r))
+convertCondExpr (C.Binary l C.ArithGE r) = Unop Not (Binop (convertWord l) LessThan (convertWord r))
 convertCondExpr (C.Binary l bop r) = FunctionInvocation (Str (bop2FunctionName bop)) [convertWord l, convertWord r]
 
 
@@ -300,7 +300,7 @@ postProcess = transformBi f
 
       -- | Convert `type wget` into `sys.onPath wget`
       f (FunctionInvocation (Str "type") args) =
-          FunctionInvocation (Str "os.onPath") args
+          FunctionInvocation (Str "sys.onPath") args
 
       -- | Convert exit and it's arguments
       f (FunctionInvocation (Str "exit") args) =
@@ -321,6 +321,9 @@ postProcess = transformBi f
       -- | Convert $@ to sys.argv
       f (Variable "#") = FunctionInvocation (Str "length") [Variable "sys.argv"]
       f (Variable "@") = Variable "sys.argv"
+
+      f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
+        = (Binop s op Null)
 
       f x = x
 

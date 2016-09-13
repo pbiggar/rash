@@ -6,6 +6,8 @@ module Rash.AST
     , Program(..)
     , LValue(..)
     , FunctionParameter(..)
+    , BOp(..)
+    , UOp(..)
     ) where
 
 import           Data.Typeable()
@@ -17,6 +19,9 @@ import           Data.Generics.Uniplate.Data()
 data Program = Program Expr
                deriving (Show, Eq, Read, Data, Typeable)
 
+data BOp = And | Or | Equals | LessThan | GreaterThan deriving (Show, Eq, Read, Data, Typeable)
+data UOp = Not deriving (Show, Eq, Read, Data, Typeable)
+
 data Expr =
 
   -- | Control flow
@@ -26,17 +31,14 @@ data Expr =
   | List [Expr] -- the last one is the true value
 
   -- | Operators
-  | And Expr Expr
-  | Or Expr Expr
-  | Equals Expr Expr
-  | LessThan Expr Expr
-  | GreaterThan Expr Expr
-  | Not Expr
+  | Binop Expr BOp Expr
+  | Unop UOp Expr
   | Concat [Expr]
 
   -- | Literals
   | Str String
   | Integer Int
+  | Null
   -- | Temporary
   | Debug String
   | Nop

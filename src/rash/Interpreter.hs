@@ -8,7 +8,7 @@ import           Control.Monad (foldM)
 import qualified System.Exit as Exit
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
-import qualified System.IO as IO
+import qualified Text.Groom as G
 
 import Rash.AST
 
@@ -92,26 +92,37 @@ evalProgram :: Program -> WithState
 evalProgram (Program e) = evalExpr e
 
 evalExpr :: Expr -> WithState
-evalExpr (List es) = do
+evalExpr e@(List es) = do
+  liftIO $ print $ "executing a list with " ++ (show (length es)) ++ " exprs"
+  evalExpr' e
+
+evalExpr e = do
+  liftIO $ print $ "executing: " ++ (G.groom e)
+  v <- evalExpr' e
+  liftIO $ print $ "returning: " ++ (show v)
+  return v
+
+evalExpr' :: Expr -> WithState
+evalExpr' (List es) = do
   result <- mapM evalExpr es
   return $ last result
 
-evalExpr Nop = return VNull
+evalExpr' Nop = return VNull
 
-evalExpr fd@(FunctionDefinition name _ _) = do
+evalExpr' fd@(FunctionDefinition name _ _) = do
   updateFuncTable $ Map.insert name fd
   return VNull
 
-evalExpr (If cond then' else') = do
+evalExpr' (If cond then' else') = do
   condVal <- evalExpr cond
   if isTruthy condVal then evalExpr then' else evalExpr else'
 
-evalExpr (Equals l r) = do
+evalExpr' (Binop l Equals r) = do
   lval <- evalExpr l
   rval <- evalExpr r
   return $ VBool (lval == rval)
 
-evalExpr ss@(Subscript (Variable name) e) = do
+evalExpr' ss@(Subscript (Variable name) e) = do
   index <- evalExpr e
   st <- getSymTable
   let var = Map.lookup name st
@@ -120,12 +131,12 @@ evalExpr ss@(Subscript (Variable name) e) = do
     (Just (VHash h), VString s) -> Map.findWithDefault VNull s h
     _ -> todo "Can't do a subscript unless on array/int or hash/string" (ss, var, index)
 
-evalExpr (Assignment (LVar name) e) = do
+evalExpr' (Assignment (LVar name) e) = do
   result <- evalExpr e
   updateSymTable $ Map.insert name result
   return result
 
-evalExpr (FunctionInvocation name args) = do
+evalExpr' (FunctionInvocation name args) = do
   _ <- liftIO $ print args
   fn <- evalExpr name
   evaledArgs <- mapM evalExpr args
@@ -133,7 +144,7 @@ evalExpr (FunctionInvocation name args) = do
   return $ code
 
 
-evalExpr (Pipe goods) = do
+evalExpr' (Pipe goods) = do
   goods2 :: [(Value, [Value])] <- mapM evalArgs goods
   let commands = map (\((VString v), vs) -> (v, map (\(VString v2) -> v2) vs)) goods2
 
@@ -166,12 +177,12 @@ evalExpr (Pipe goods) = do
       return (n, as)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e
 
+evalExpr' Null = return VNull
+evalExpr' (Integer i) = return $ VInt i
+evalExpr' (Str i) = return $ VString i
 
-evalExpr (Integer i) = return $ VInt i
-evalExpr (Str i) = return $ VString i
 
-
-evalExpr e = do
+evalExpr' e = do
   liftIO $ debug "an unsupported expression was found"
   liftIO $ debug e
   _ <- error "ending early"

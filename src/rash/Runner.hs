@@ -2,10 +2,14 @@ module Rash.Runner (runSource, runFile, evalAndPrint) where
 
 import qualified Data.Either as Either
 import qualified System.Exit as Exit
+import qualified Text.Groom as G
 
 import Rash.AST
 import qualified Rash.Interpreter as Interpreter
 import qualified Rash.Bash2AST as Bash2AST
+
+debug :: Bool
+debug = True
 
 evalAndPrint :: String -> String -> IO ()
 evalAndPrint name source = do
@@ -17,6 +21,7 @@ evalAndPrint name source = do
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
+  putStrLn $ if debug then (G.groom program) else ""
   exit <- Interpreter.interpret program args
   return $ convertToExitCode exit
 
