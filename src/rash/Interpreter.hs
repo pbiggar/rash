@@ -4,6 +4,7 @@ module Rash.Interpreter where
 import qualified Data.Map.Strict as Map
 import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad (foldM)
 import qualified System.Exit as Exit
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
@@ -133,27 +134,15 @@ evalExpr (FunctionInvocation name args) = do
 
 
 evalExpr (Pipe goods) = do
-  --goods2 :: [(Value, [Value])] <- mapM evalArgs goods
+  goods2 :: [(Value, [Value])] <- mapM evalArgs goods
+  let commands = map (\((VString v), vs) -> (v, map (\(VString v2) -> v2) vs)) goods2
 
   result <- liftIO $ do
-    let commands = [
-                     ("ls", [])
-                   , ("cat", [])
-                   , ("wc", ["-l"])
-                   , ("cat", ["-"])]
 
-    let nextStdin = Proc.NoStream
-    (nextStdin, h1) <- kickProc "p1" "ls" [] nextStdin
-    (nextStdin, h2) <- kickProc "p2" "cat" [] nextStdin
-    (nextStdin, h3) <- kickProc "p3" "wc" ["-l"] nextStdin
-    (nextStdin, h4) <- kickProc "p4" "cat" ["-"] nextStdin
+    (lastStdout, procs) <- foldM buildProc (Proc.NoStream, []) commands
+    _ <- mapM Proc.waitForProcess procs
 
-    _ <- Proc.waitForProcess h1
-    _ <- Proc.waitForProcess h2
-    _ <- Proc.waitForProcess h3
-    _ <- Proc.waitForProcess h4
-
-    let (Proc.UseHandle final) = nextStdin
+    let (Proc.UseHandle final) = lastStdout
     stdout <- Handle.hGetContents final
 
     print $ "stdout: " ++ stdout
@@ -162,18 +151,21 @@ evalExpr (Pipe goods) = do
 
   return $ VString result
   where
+    buildProc :: (Proc.StdStream, [Proc.ProcessHandle]) -> (String, [String]) -> IO (Proc.StdStream, [Proc.ProcessHandle])
+    buildProc (stdin, prevProcs) (cmd, args) = do
+      let p = (Proc.proc cmd args) {
+                 Proc.std_in = stdin
+               , Proc.std_out = Proc.CreatePipe
+               , Proc.close_fds = True }
+      (_, Just out, _, procH) <- Proc.createProcess_ cmd p
+      return (Proc.UseHandle out, prevProcs ++ [procH])
+
     evalArgs (FunctionInvocation name args) = do
       n <- eval2Str name
       as <- mapM eval2Str args
       return (n, as)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e
-    kickProc name cmd args stdin = do
-      let p = (Proc.proc cmd args) {
-                 Proc.std_in = stdin
-               , Proc.std_out = Proc.CreatePipe
-               , Proc.close_fds = True }
-      (_, Just out, _, procH) <- Proc.createProcess_ name p
-      return (Proc.UseHandle out, procH)
+
 
 evalExpr (Integer i) = return $ VInt i
 evalExpr (Str i) = return $ VString i
