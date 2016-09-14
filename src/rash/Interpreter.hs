@@ -1,14 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 module Rash.Interpreter where
 
 import qualified Data.Map.Strict as Map
 import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad (foldM)
+--import           Control.Monad (foldM)
 import qualified System.Exit as Exit
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
 import qualified Text.Groom as G
+--import qualified Unsafe.Coerce
+import qualified System.IO as IO
+import qualified Control.Concurrent as CC
 
 import Rash.AST
 
@@ -28,17 +32,41 @@ data Value = VInt Int
              deriving (Show, Eq)
 
 type SymTable = Map.Map String Value
-type FuncTable = Map.Map String Expr
-data IState = IState {symtable::SymTable, functable::FuncTable} deriving (Show)
-type WithState = State.StateT IState IO Value
+type FuncTable = Map.Map String FuncDef
+data Frame = Frame {symtable::SymTable, handles_::Handles} deriving (Show)
+data IState = IState {frame_::Frame, functable::FuncTable} deriving (Show)
+type WithState a = State.StateT IState IO a
 
-getSymTable :: State.StateT IState IO SymTable
-getSymTable = State.gets symtable
+data Handles = Handles {stdin_::Handle.Handle
+                      , stdout_::Handle.Handle
+                      , stderr_::Handle.Handle}
+                      deriving (Show)
 
-getFuncTable :: State.StateT IState IO FuncTable
+data Process = FuncProc CC.ThreadId | ProcProc Proc.ProcessHandle
+
+waitForProcess :: Process -> IO ()
+waitForProcess (FuncProc threadid) = error "asdas"
+waitForProcess (ProcProc handle) = do
+  _ <- Proc.waitForProcess handle
+  return ()
+
+
+getStdin :: WithState Handle.Handle
+getStdin = State.gets $ stdin_ . handles_ . frame_
+
+getStdout :: WithState Handle.Handle
+getStdout = State.gets $ stdout_ . handles_ . frame_
+
+getStderr :: WithState Handle.Handle
+getStderr = State.gets $ stderr_ . handles_ . frame_
+
+getSymTable :: WithState SymTable
+getSymTable = State.gets $ symtable . frame_
+
+getFuncTable :: WithState FuncTable
 getFuncTable = State.gets functable
 
-updateFuncTable :: (FuncTable -> FuncTable) -> State.StateT IState IO ()
+updateFuncTable :: (FuncTable -> FuncTable) -> WithState ()
 updateFuncTable newTable = do
   s <- State.get
   State.put $ s {functable = newTable (functable s)}
@@ -46,7 +74,9 @@ updateFuncTable newTable = do
 updateSymTable :: (SymTable -> SymTable) -> State.StateT IState IO ()
 updateSymTable newTable = do
   s <- State.get
-  State.put $ s {symtable = newTable (symtable s)}
+  let f = frame_ s
+  let newFrame = f {symtable = newTable (symtable f)}
+  State.put $ s {frame_ = newFrame}
 
 
 findWithDefault :: [a] -> Int -> a -> a
@@ -60,8 +90,13 @@ debug x = putStrLn $ "Debug: " ++ show x
 
 interpret :: Program -> [String] -> IO Value
 interpret program args = do
-  let initial = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
-  (val, final) <- State.runStateT (evalProgram program) (IState initial Map.empty)
+  let initialSymTable = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
+  let initialFuncTable = Map.empty
+  let handles = Handles IO.stdin IO.stdout IO.stderr
+  (val, final) <- State.runStateT (evalProgram program)
+                                  (IState
+                                   (Frame initialSymTable handles)
+                                   initialFuncTable)
   debug $ "Final state: " ++ show final
   return val
 
@@ -78,7 +113,7 @@ isTruthy (VArray _) = True
 isTruthy (VHash _) = True
 isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
 
-eval2Str :: Expr -> WithState
+eval2Str :: Expr -> WithState Value
 eval2Str e = do
     expr <- evalExpr e
     return $ toString expr
@@ -88,10 +123,10 @@ toString :: Value -> Value
 toString s@(VString _) = s
 toString v = todo "Not a string" v
 
-evalProgram :: Program -> WithState
+evalProgram :: Program -> WithState Value
 evalProgram (Program e) = evalExpr e
 
-evalExpr :: Expr -> WithState
+evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
   liftIO $ print $ "executing a list with " ++ (show (length es)) ++ " exprs"
   evalExpr' e
@@ -102,14 +137,14 @@ evalExpr e = do
   liftIO $ print $ "returning: " ++ (show v)
   return v
 
-evalExpr' :: Expr -> WithState
+evalExpr' :: Expr -> WithState Value
 evalExpr' (List es) = do
   result <- mapM evalExpr es
   return $ last result
 
 evalExpr' Nop = return VNull
 
-evalExpr' fd@(FunctionDefinition name _ _) = do
+evalExpr' (FunctionDefinition fd@(FuncDef name _ _)) = do
   updateFuncTable $ Map.insert name fd
   return VNull
 
@@ -136,45 +171,56 @@ evalExpr' (Assignment (LVar name) e) = do
   updateSymTable $ Map.insert name result
   return result
 
-evalExpr' (FunctionInvocation name args) = do
-  _ <- liftIO $ print args
-  fn <- evalExpr name
-  evaledArgs <- mapM evalExpr args
-  code <- liftIO $ runFunction fn evaledArgs
-  return $ code
+evalExpr' f@(FunctionInvocation _ _) = evalExpr' (Pipe [f])
+
+evalExpr' (Pipe goodsExpr) = do
+  -- TODO: when you call a pipe, what do you do with the "output"? Obviously,
+  -- you stream it to the parent. And occasionally the parent will be stdout. So
+  -- clearly, we need to pass - implicitly - the handle from the calling
+  -- function.
+  -- However, that breaks our metaphor of "returning" a packet with the streams in it...
+  -- TODO: we need to handle stderr too.
+  -- TODO support exit codes
+  goods :: [(String, [Value])] <- mapM evalArgs goodsExpr
+  let commands = map (\(v, vs) -> (v, map (\(VString v2) -> v2) vs)) goods
+
+  stdin <- getStdin
+  stdout <- getStdout
+  stderr <- getStderr
+
+  do
+    --handles = [(stdin, w1), (r1, w2), (r2, stdout)]
+    pipes :: [(Handle.Handle, Handle.Handle)] <- liftIO $ mapM (const Proc.createPipe) goods
+    let pipes1 :: [(Handle.Handle, Handle.Handle)] = tail pipes
+    let pipes2 :: [Handle.Handle] = foldl (\c (a,b) -> c ++ [a, b]) [] pipes1
+    let pipes3 :: [Handle.Handle] = [stdin] ++ pipes2 ++ [stdout]
+    let joiner = (\case
+                   (a:b:cs) -> [Handles a b stderr] ++ (joiner cs)
+                   [] -> [])
+
+    let pipes4 :: [Handles] = joiner pipes3
+
+    let entirity = zip pipes4 commands
+
+    procs <- mapM buildSegment entirity
+
+    _ <- liftIO $ mapM waitForProcess procs
+    return VNull
 
 
-evalExpr' (Pipe goods) = do
-  goods2 :: [(Value, [Value])] <- mapM evalArgs goods
-  let commands = map (\((VString v), vs) -> (v, map (\(VString v2) -> v2) vs)) goods2
-
-  result <- liftIO $ do
-
-    (lastStdout, procs) <- foldM buildProc (Proc.NoStream, []) commands
-    _ <- mapM Proc.waitForProcess procs
-
-    let (Proc.UseHandle final) = lastStdout
-    stdout <- Handle.hGetContents final
-
-    print $ "stdout: " ++ stdout
-
-    return stdout
-
-  return $ VString result
   where
-    buildProc :: (Proc.StdStream, [Proc.ProcessHandle]) -> (String, [String]) -> IO (Proc.StdStream, [Proc.ProcessHandle])
-    buildProc (stdin, prevProcs) (cmd, args) = do
-      let p = (Proc.proc cmd args) {
-                 Proc.std_in = stdin
-               , Proc.std_out = Proc.CreatePipe
-               , Proc.close_fds = True }
-      (_, Just out, _, procH) <- Proc.createProcess_ cmd p
-      return (Proc.UseHandle out, prevProcs ++ [procH])
+    buildSegment :: (Handles, (String, [String])) -> WithState (Process)
+    buildSegment (handles, (cmd, args)) = do
+      ft <- getFuncTable
+      let func = Map.lookup cmd ft
+      procHandle <- case func of
+        Just f -> createFuncThread f args handles
+        Nothing -> liftIO $ createBackgroundProc cmd args handles
+      return procHandle
 
     evalArgs (FunctionInvocation name args) = do
-      n <- eval2Str name
       as <- mapM eval2Str args
-      return (n, as)
+      return (name, as)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e
 
 evalExpr' Null = return VNull
@@ -189,11 +235,33 @@ evalExpr' e = do
   return $ todo "an unsupported expression was found" e
 
 
-runFunction :: Value -> [Value] -> IO Value
-runFunction fn args = do
-  code <- case fn of
-            VString str -> do
-                  debug $ "Calling function: " ++ str ++ show args
-                  Proc.rawSystem str (map show args)
-            _ -> return $ Exit.ExitFailure (-1)
-  return $ VPacket code
+
+createBackgroundProc :: String -> [String] -> Handles -> IO Process
+createBackgroundProc cmd args (Handles stdin stdout stderr) = do
+  let p = (Proc.proc cmd args) {
+      Proc.std_in = Proc.UseHandle stdin
+    , Proc.std_out = Proc.UseHandle stdout
+    , Proc.std_err = Proc.UseHandle stderr
+    , Proc.close_fds = True }
+  (_, _, _, proc) <- liftIO $ Proc.createProcess_ cmd p
+  return $ ProcProc proc
+
+createFuncThread :: FuncDef -> [String] -> Handles -> WithState Process
+createFuncThread (FuncDef _ params body) args (Handles stdin stdout stderr) = do
+  ft <- getFuncTable
+
+  -- new stack frame, with args TODO: copy the "globals"
+  let newSymTable = foldr (\((FunctionParameter param), arg)
+                           table
+                            -> Map.insert param (VString arg) table)
+                         Map.empty
+                         (zip params args)
+
+  let frame = Frame newSymTable (Handles stdin stdout stderr)
+  -- (returnVal, state) -- state is dontcare
+  threadid <- do liftIO $ CC.forkIO $ do
+
+                  (_, _) <- State.runStateT (evalProgram (Program body)) (IState frame ft)
+                  return ()
+
+  return $ FuncProc threadid

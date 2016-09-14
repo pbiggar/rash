@@ -8,6 +8,7 @@ module Rash.AST
     , FunctionParameter(..)
     , BOp(..)
     , UOp(..)
+    , FuncDef(..)
     ) where
 
 import           Data.Typeable()
@@ -19,8 +20,14 @@ import           Data.Generics.Uniplate.Data()
 data Program = Program Expr
                deriving (Show, Eq, Read, Data, Typeable)
 
-data BOp = And | Or | Equals | LessThan | GreaterThan deriving (Show, Eq, Read, Data, Typeable)
-data UOp = Not deriving (Show, Eq, Read, Data, Typeable)
+data BOp = And | Or | Equals | LessThan | GreaterThan
+           deriving (Show, Eq, Read, Data, Typeable)
+data UOp = Not
+           deriving (Show, Eq, Read, Data, Typeable)
+
+data FuncDef = FuncDef String [FunctionParameter] Expr
+               deriving (Show, Eq, Read, Data, Typeable)
+
 
 data Expr =
 
@@ -43,8 +50,8 @@ data Expr =
   | Debug String
   | Nop
   -- | Functions
-  | FunctionInvocation Expr [Expr]
-  | FunctionDefinition String [FunctionParameter] Expr
+  | FunctionInvocation String [Expr]
+  | FunctionDefinition FuncDef
 
   -- | Storage
   | Variable String

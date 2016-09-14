@@ -12,7 +12,6 @@ import qualified Language.Bash.Word as W
 import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
-import qualified Text.Groom as G
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
@@ -81,7 +80,7 @@ convertShellCommand (S.AssignBuiltin w es) []
 
 convertShellCommand (S.Cond e) [] = convertCondExpr e
 convertShellCommand (S.FunctionDef name cmds) [] =
-    postProcessFunctionDefs (FunctionDefinition name [] (convertList cmds))
+    postProcessFunctionDefs (FunctionDefinition (FuncDef name [] (convertList cmds)))
 
 convertShellCommand (S.For v wl cmds) [] =
     For (LVar v) (convertWordList wl) (convertList cmds)
@@ -138,7 +137,7 @@ convertSpan (W.ParamSubst W.Brace {W.indirect = False,
                                     W.parameter = (W.Parameter p Nothing)})
     = Variable p
 convertSpan (W.ParamSubst W.Length {W.parameter = (W.Parameter p Nothing)})
-    = FunctionInvocation (Str "string.length") [Variable p]
+    = FunctionInvocation "string.length" [Variable p]
 convertSpan (W.ParamSubst W.Bare {W.parameter = (W.Parameter p Nothing)})
     = Variable p
 convertSpan (W.ParamSubst W.Delete {W.indirect = False
@@ -146,7 +145,7 @@ convertSpan (W.ParamSubst W.Delete {W.indirect = False
                                   , W.longest = longest
                                   , W.deleteDirection = direction
                                   , W.pattern = pattern })
-    = FunctionInvocation (Str ("string." ++ name)) args
+    = FunctionInvocation ("string." ++ name) args
       where
         name = if direction == W.Front then "replace_front" else "replace_back"
         args = [Variable p, convertWord pattern] ++ longestArgs
@@ -166,10 +165,15 @@ convertString w = case convertWord w of
 
 -- TODO: support first class functions?
 convertFunctionCall :: Expr -> [Expr] -> Expr
+convertFunctionCall (Str name) args = convertFunctionCall' name args
+convertFunctionCall name args = Debug ("not named: " ++ (show name) ++ (show args))
+
+convertFunctionCall' :: String -> [Expr] -> Expr
 -- TODO: convert this into some sort of exception
-convertFunctionCall (Str "set") [Str "-e"] = Nop
-convertFunctionCall (Str "set") [Str "+e"] = Nop
-convertFunctionCall name args = FunctionInvocation name args
+convertFunctionCall' "set" [Str "-e"] = Nop
+convertFunctionCall' "set" [Str "+e"] = Nop
+
+convertFunctionCall' name args = FunctionInvocation name args
 
 
 
@@ -188,7 +192,7 @@ convertCondExpr (C.Not e) = Unop Not (convertCondExpr e)
 convertCondExpr (C.And a b) = Binop (convertCondExpr a) And (convertCondExpr b)
 convertCondExpr (C.Or a b) = Binop (convertCondExpr a) Or (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
-    FunctionInvocation (Str (uop2FunctionName uop)) [convertWord w]
+    FunctionInvocation (uop2FunctionName uop) [convertWord w]
 convertCondExpr (C.Binary l C.StrEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.ArithEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.StrNE r) = Unop Not (Binop (convertWord l) Equals (convertWord r))
@@ -198,7 +202,7 @@ convertCondExpr (C.Binary l C.ArithLT r) = Binop (convertWord l) LessThan (conve
 convertCondExpr (C.Binary l C.StrGT r) = Binop (convertWord l) GreaterThan (convertWord r)
 convertCondExpr (C.Binary l C.ArithLE r) = Unop Not (Binop (convertWord l) GreaterThan (convertWord r))
 convertCondExpr (C.Binary l C.ArithGE r) = Unop Not (Binop (convertWord l) LessThan (convertWord r))
-convertCondExpr (C.Binary l bop r) = FunctionInvocation (Str (bop2FunctionName bop)) [convertWord l, convertWord r]
+convertCondExpr (C.Binary l bop r) = FunctionInvocation (bop2FunctionName bop) [convertWord l, convertWord r]
 
 
 -- | Function names for BinaryOps
@@ -294,17 +298,17 @@ postProcess = transformBi f
           For v rv block
 
       -- | Convert `read input` into `input = sys.read()`
-      f (FunctionInvocation (Str "read") [Str var]) =
+      f (FunctionInvocation "read" [Str var]) =
           Assignment (LVar var)
-                        (FunctionInvocation (Str "sys.read") [])
+                        (FunctionInvocation "sys.read" [])
 
       -- | Convert `type wget` into `sys.onPath wget`
-      f (FunctionInvocation (Str "type") args) =
-          FunctionInvocation (Str "sys.onPath") args
+      f (FunctionInvocation "type" args) =
+          FunctionInvocation "sys.onPath" args
 
       -- | Convert exit and it's arguments
-      f (FunctionInvocation (Str "exit") args) =
-          FunctionInvocation (Str "sys.exit")
+      f (FunctionInvocation "exit" args) =
+          FunctionInvocation "sys.exit"
                               (map convertExitArg args)
 
       -- | Convert $1, $2, etc to sys.argv[1] etc
@@ -319,7 +323,7 @@ postProcess = transformBi f
       f (Variable "9") = Subscript (Variable "sys.argv") (Integer 9)
       -- | Convert $# to sys.argv.length
       -- | Convert $@ to sys.argv
-      f (Variable "#") = FunctionInvocation (Str "length") [Variable "sys.argv"]
+      f (Variable "#") = FunctionInvocation "length" [Variable "sys.argv"]
       f (Variable "@") = Variable "sys.argv"
 
       f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
