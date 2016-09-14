@@ -5,3 +5,4 @@ import "hint" HLint.Generalise
 ignore "Use mappend"
 ignore "Use ."
 ignore "Use fmap"
+ignore "Use second"
