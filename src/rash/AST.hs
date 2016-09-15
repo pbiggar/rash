@@ -52,6 +52,7 @@ data Expr =
   -- | Functions
   | FunctionInvocation String [Expr]
   | FunctionDefinition FuncDef
+  | Stdin Expr Expr
 
   -- | Storage
   | Variable String

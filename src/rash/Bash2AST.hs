@@ -17,7 +17,7 @@ import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
 import Rash.AST
 import qualified Data.Maybe as Maybe
-
+import qualified System.IO.Unsafe as UnsafeIO
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
@@ -29,7 +29,12 @@ debug x reason = Debug (debugStr x reason)
 debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
 debugWithType x reason = debug x (reason ++ " " ++ show (Typeable.typeOf x))
 
-
+printDebug :: (Show a) => String -> a -> a
+printDebug reason x = UnsafeIO.unsafePerformIO $ do
+  putStrLn reason
+  putStr " -> "
+  print $ show x
+  return x
 
 -- | Lists
 convertList :: S.List -> Expr
@@ -55,43 +60,50 @@ listOrPipe es = Pipe es
 convertPipeline :: S.Pipeline -> Expr
 -- ignored timing and inverted. I think this is right.
 convertPipeline (S.Pipeline _ _ _ cs) =
-    listOrPipe [ convertShellCommand sc rs | (S.Command sc rs) <- cs ]
+    listOrPipe $ map convertCommand cs
+
+convertCommand (S.Command sc rs) =
+  foldl convertRedir (convertShellCommand sc) rs
+
+convertRedir :: Expr -> S.Redir -> Expr
+convertRedir expr (S.Heredoc S.Here _ False doc) = (Stdin (convertWord doc) expr)
+convertRedir _ r = debugWithType r "cr"
 
 -- | Commands
-convertShellCommand :: S.ShellCommand -> [S.Redir] -> Expr
-convertShellCommand (S.If cond l1 Nothing) [] =
+convertShellCommand :: S.ShellCommand -> Expr
+convertShellCommand (S.If cond l1 Nothing) =
     If
     (convertList cond)
     (convertList l1)
     (listOrExpr [Nop]) -- TODO: is Maybe nicer here?
 
-convertShellCommand (S.If cond l1 (Just l2)) [] =
+convertShellCommand (S.If cond l1 (Just l2)) =
     If
     (convertList cond)
     (convertList l1)
     (convertList l2)
 
--- TODO: this is the only place that handles heredocs. Everywhere should.
-convertShellCommand (S.SimpleCommand as ws) rs = convertSimpleCommand as (combineHeredoc ws rs)
+convertShellCommand (S.SimpleCommand as ws) =
+  convertSimpleCommand as ws
 
-convertShellCommand (S.AssignBuiltin w es) []
+convertShellCommand (S.AssignBuiltin w es)
     | w == W.fromString "local" = listOrExpr (map convertAssignOrWord es)
     | otherwise = debugWithType w "ccscab"
 
-convertShellCommand (S.Cond e) [] = convertCondExpr e
-convertShellCommand (S.FunctionDef name cmds) [] =
+convertShellCommand (S.Cond e) = convertCondExpr e
+convertShellCommand (S.FunctionDef name cmds) =
     postProcessFunctionDefs (FunctionDefinition (FuncDef name [] (convertList cmds)))
 
-convertShellCommand (S.For v wl cmds) [] =
+convertShellCommand (S.For v wl cmds) =
     For (LVar v) (convertWordList wl) (convertList cmds)
 
-convertShellCommand (S.While expr cmds) [] =
+convertShellCommand (S.While expr cmds) =
     For AnonVar (convertList expr) (convertList cmds)
 
-convertShellCommand (S.Group list) [] =
+convertShellCommand (S.Group list) =
     convertList list
 
-convertShellCommand x rs = debugWithType x $ "cc" ++ show rs
+convertShellCommand x = debugWithType x $ "cc"
 
 
 -- | SimpleCommands (assignments)
@@ -178,6 +190,7 @@ convertFunctionCall' name args = FunctionInvocation name args
 
 
 -- | Heredocs
+-- TODO: heredocs have stripping and interpolation!
 combineHeredoc :: [W.Word] -> [S.Redir] -> [W.Word]
 combineHeredoc ws rs = ws ++ ns
     where ns = Maybe.mapMaybe hd2word rs

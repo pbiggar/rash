@@ -29,6 +29,7 @@ library
                      , transformers
                      , containers
                      , process >= 1.4.2.0
+                     , async
   default-language:    Haskell2010
 
 executable rash-exe

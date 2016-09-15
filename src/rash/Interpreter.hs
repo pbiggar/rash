@@ -12,7 +12,7 @@ import qualified GHC.IO.Handle as Handle
 import qualified Text.Groom as G
 --import qualified Unsafe.Coerce
 import qualified System.IO as IO
-import qualified Control.Concurrent as CC
+import qualified Control.Concurrent.Async as Async
 
 import Rash.AST
 
@@ -42,10 +42,10 @@ data Handles = Handles {stdin_::Handle.Handle
                       , stderr_::Handle.Handle}
                       deriving (Show)
 
-data Process = FuncProc CC.ThreadId | ProcProc Proc.ProcessHandle
+data Process = FuncProc (Async.Async ()) | ProcProc Proc.ProcessHandle
 
 waitForProcess :: Process -> IO ()
-waitForProcess (FuncProc threadid) = error "asdas"
+waitForProcess (FuncProc asyncid) = Async.wait asyncid
 waitForProcess (ProcProc handle) = do
   _ <- Proc.waitForProcess handle
   return ()
@@ -85,8 +85,9 @@ findWithDefault list index def =
     then def
     else list !! index
 
-debug ::Show a => a -> IO ()
-debug x = putStrLn $ "Debug: " ++ show x
+debug :: Show a => a -> IO ()
+debug _ = return ()
+--debux x = putStrLn $ "Debug: " ++ show x
 
 interpret :: Program -> [String] -> IO Value
 interpret program args = do
@@ -128,13 +129,13 @@ evalProgram (Program e) = evalExpr e
 
 evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
-  liftIO $ print $ "executing a list with " ++ (show (length es)) ++ " exprs"
+  let _ = debug $ "executing a list with " ++ (show (length es)) ++ " exprs"
   evalExpr' e
 
 evalExpr e = do
-  liftIO $ print $ "executing: " ++ (G.groom e)
+  let _ = debug $ "executing: " ++ (G.groom e)
   v <- evalExpr' e
-  liftIO $ print $ "returning: " ++ (show v)
+  let _ = debug $ "returning: " ++ (show v)
   return v
 
 evalExpr' :: Expr -> WithState Value
@@ -173,7 +174,32 @@ evalExpr' (Assignment (LVar name) e) = do
 
 evalExpr' f@(FunctionInvocation _ _) = evalExpr' (Pipe [f])
 
-evalExpr' (Pipe goodsExpr) = do
+evalExpr' pipe@(Pipe _) = do
+  stdin <- getStdin
+  evalPipe pipe stdin
+
+evalExpr' (Stdin input expr) = do
+  (VString inputStr) <- eval2Str input
+  (r,w) <- liftIO $ Proc.createPipe
+  liftIO $ IO.hPutStr w inputStr
+
+  result <- evalPipe (Pipe [expr]) r
+  liftIO $ IO.hClose r
+  return result
+
+evalExpr' Null = return VNull
+evalExpr' (Integer i) = return $ VInt i
+evalExpr' (Str i) = return $ VString i
+
+
+evalExpr' e = do
+  liftIO $ debug "an unsupported expression was found"
+  liftIO $ debug e
+  _ <- error "ending early"
+  return $ todo "an unsupported expression was found" e
+
+evalPipe :: Expr -> Handle.Handle -> WithState Value
+evalPipe (Pipe pipe) stdin = do
   -- TODO: when you call a pipe, what do you do with the "output"? Obviously,
   -- you stream it to the parent. And occasionally the parent will be stdout. So
   -- clearly, we need to pass - implicitly - the handle from the calling
@@ -181,10 +207,9 @@ evalExpr' (Pipe goodsExpr) = do
   -- However, that breaks our metaphor of "returning" a packet with the streams in it...
   -- TODO: we need to handle stderr too.
   -- TODO support exit codes
-  goods :: [(String, [Value])] <- mapM evalArgs goodsExpr
+  goods :: [(String, [Value])] <- mapM evalArgs pipe
   let commands = map (\(v, vs) -> (v, map (\(VString v2) -> v2) vs)) goods
 
-  stdin <- getStdin
   stdout <- getStdout
   stderr <- getStderr
 
@@ -196,6 +221,7 @@ evalExpr' (Pipe goodsExpr) = do
     let pipes3 :: [Handle.Handle] = [stdin] ++ pipes2 ++ [stdout]
     let joiner = (\case
                    (a:b:cs) -> [Handles a b stderr] ++ (joiner cs)
+                   [_] -> error "shouldn't happen"
                    [] -> [])
 
     let pipes4 :: [Handles] = joiner pipes3
@@ -223,17 +249,6 @@ evalExpr' (Pipe goodsExpr) = do
       return (name, as)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e
 
-evalExpr' Null = return VNull
-evalExpr' (Integer i) = return $ VInt i
-evalExpr' (Str i) = return $ VString i
-
-
-evalExpr' e = do
-  liftIO $ debug "an unsupported expression was found"
-  liftIO $ debug e
-  _ <- error "ending early"
-  return $ todo "an unsupported expression was found" e
-
 
 
 createBackgroundProc :: String -> [String] -> Handles -> IO Process
@@ -259,9 +274,9 @@ createFuncThread (FuncDef _ params body) args (Handles stdin stdout stderr) = do
 
   let frame = Frame newSymTable (Handles stdin stdout stderr)
   -- (returnVal, state) -- state is dontcare
-  threadid <- do liftIO $ CC.forkIO $ do
+  asyncid <- do liftIO $ Async.async $ do
 
                   (_, _) <- State.runStateT (evalProgram (Program body)) (IState frame ft)
                   return ()
 
-  return $ FuncProc threadid
+  return $ FuncProc asyncid

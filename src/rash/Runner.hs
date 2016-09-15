@@ -9,19 +9,19 @@ import qualified Rash.Interpreter as Interpreter
 import qualified Rash.Bash2AST as Bash2AST
 
 debug :: Bool
-debug = True
+debug = False
 
 evalAndPrint :: String -> String -> IO ()
 evalAndPrint name source = do
   result <- case (Bash2AST.translate name source) of
     Left err -> return . show $ err
     Right prog -> Interpreter.interpret prog [] >>= return .show
-  putStrLn result
+  --putStrLn result
   return ()
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
-  putStrLn $ if debug then (G.groom program) else ""
+  putStr $ if debug then (G.groom program) else ""
   exit <- Interpreter.interpret program args
   return $ convertToExitCode exit
 
