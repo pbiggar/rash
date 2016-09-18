@@ -5,15 +5,17 @@ import qualified System.Exit as Exit
 import qualified Text.Groom as G
 
 import Rash.AST
+import Rash.Runtime
 import qualified Rash.Interpreter as Interpreter
 import qualified Rash.Bash2AST as Bash2AST
+
 
 debug :: Bool
 debug = False
 
 evalAndPrint :: String -> String -> IO ()
 evalAndPrint name source = do
-  result <- case (Bash2AST.translate name source) of
+  _ <- case (Bash2AST.translate name source) of
     Left err -> return . show $ err
     Right prog -> Interpreter.interpret prog [] >>= return .show
   --putStrLn result
@@ -29,7 +31,7 @@ runSource :: String -> String -> [String] -> IO Exit.ExitCode
 runSource name source args = do
   Either.either
     (\err -> (do
-                (putStrLn $ show err)
+                print err
                 return $ Exit.ExitFailure (-1)))
     ((flip runProgram) args)
     (Bash2AST.translate name source)
@@ -40,6 +42,6 @@ runFile file args = do
   src <- readFile file
   runSource file src args
 
-convertToExitCode :: Interpreter.Value -> Exit.ExitCode
-convertToExitCode (Interpreter.VInt i) = if i == 0 then Exit.ExitSuccess else Exit.ExitFailure i
+convertToExitCode :: Value -> Exit.ExitCode
+convertToExitCode (VInt i) = if i == 0 then Exit.ExitSuccess else Exit.ExitFailure i
 convertToExitCode _ = Exit.ExitSuccess

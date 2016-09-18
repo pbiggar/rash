@@ -16,7 +16,6 @@ import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
 import Rash.AST
-import qualified Data.Maybe as Maybe
 import qualified System.IO.Unsafe as UnsafeIO
 
 -- | Debugging
@@ -62,6 +61,7 @@ convertPipeline :: S.Pipeline -> Expr
 convertPipeline (S.Pipeline _ _ _ cs) =
     listOrPipe $ map convertCommand cs
 
+convertCommand :: S.Command -> Expr
 convertCommand (S.Command sc rs) =
   foldl convertRedir (convertShellCommand sc) rs
 
@@ -187,17 +187,6 @@ convertFunctionCall' "set" [Str "+e"] = Nop
 
 convertFunctionCall' name args = FunctionInvocation name args
 
-
-
--- | Heredocs
--- TODO: heredocs have stripping and interpolation!
-combineHeredoc :: [W.Word] -> [S.Redir] -> [W.Word]
-combineHeredoc ws rs = ws ++ ns
-    where ns = Maybe.mapMaybe hd2word rs
-
-hd2word :: S.Redir -> Maybe W.Word
-hd2word S.Heredoc {S.hereDocument=hd} = Just hd
-hd2word _ = Nothing
 
 -- | CondExprs
 convertCondExpr :: C.CondExpr W.Word -> Expr

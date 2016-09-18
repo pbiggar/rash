@@ -28,7 +28,6 @@ data UOp = Not
 data FuncDef = FuncDef String [FunctionParameter] Expr
                deriving (Show, Eq, Read, Data, Typeable)
 
-
 data Expr =
 
   -- | Control flow
