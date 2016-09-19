@@ -13,11 +13,11 @@ import           Control.Exception (throw)
 import qualified Control.Monad.Trans.State as State
 
 
-
 import Rash.AST
 import Rash.Runtime as Runtime
+import Rash.Debug
 
-evalPipe :: [(String, [String])] -> Handle.Handle -> EvalExprFn -> WithState Value
+evalPipe :: [(String, [Value])] -> Handle.Handle -> EvalExprFn -> WithState Value
 evalPipe commands stdin evalProgram = do
   -- TODO: when you call a pipe, what do you do with the "output"? Obviously,
   -- you stream it to the parent. And occasionally the parent will be stdout. So
@@ -51,7 +51,7 @@ evalPipe commands stdin evalProgram = do
 
 
   where
-    buildSegment :: (Handles, (String, [String])) -> WithState (Process)
+    buildSegment :: (Handles, (String, [Value])) -> WithState (Process)
     buildSegment (handles, (cmd, args)) = do
       ft <- getFuncTable
       let func = Map.lookup cmd ft
@@ -69,10 +69,16 @@ waitForProcess (FuncProc asyncid) = do
   either throw return e
 waitForProcess (ProcProc handle) = void $ Proc.waitForProcess handle
 
+value2ProcString :: Value -> String
+value2ProcString (VString s) = s
+value2ProcString (VInt i) = show i
+value2ProcString x = todo "valueToProcString" x
 
-createBackgroundProc :: String -> [String] -> Handles -> IO Process
+
+
+createBackgroundProc :: String -> [Value] -> Handles -> IO Process
 createBackgroundProc cmd args (Handles stdin stdout stderr) = do
-  let p = (Proc.proc cmd args) {
+  let p = (Proc.proc cmd (map value2ProcString args)) {
       Proc.std_in = Proc.UseHandle stdin
     , Proc.std_out = Proc.UseHandle stdout
     , Proc.std_err = Proc.UseHandle stderr
@@ -81,7 +87,7 @@ createBackgroundProc cmd args (Handles stdin stdout stderr) = do
   return $ ProcProc proc
 
 
-createFuncThread :: Function -> [String] -> Handles -> EvalExprFn -> WithState Process
+createFuncThread :: Function -> [Value] -> Handles -> EvalExprFn -> WithState Process
 createFuncThread func args handles evalExpr = do
   state <- getState
 
@@ -90,13 +96,13 @@ createFuncThread func args handles evalExpr = do
                   return ()
   return $ FuncProc asyncid
 
-runFunction :: Function -> [String] -> Handles -> IState -> EvalExprFn -> IO Value
+runFunction :: Function -> [Value] -> Handles -> IState -> EvalExprFn -> IO Value
 runFunction (UserDefined (FuncDef _ params body))
             args handles state evalExpr = do
   -- new stack frame, with args TODO: copy the "globals"
   let st = foldr (\((FunctionParameter param), arg)
                    table
-                   -> Map.insert param (VString arg) table)
+                   -> Map.insert param arg table)
                    Map.empty
                    (zip params args)
   let newState = state { frame_ = Frame st handles }
@@ -104,6 +110,5 @@ runFunction (UserDefined (FuncDef _ params body))
   State.evalStateT (evalExpr body) newState
 
 runFunction (Builtin fn) args handles state _ = do
-  let args1 = map VString args
   let newState = state { frame_ = Frame Map.empty handles }
-  State.evalStateT (fn args1) $ newState
+  State.evalStateT (fn args) $ newState

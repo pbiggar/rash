@@ -88,6 +88,10 @@ evalExpr' (Binop l Equals r) = do
   rval <- evalExpr r
   return $ VBool (lval == rval)
 
+evalExpr' (Variable name) = do
+  st <- getSymTable
+  return $ fromMaybe VNull $ Map.lookup name st
+
 evalExpr' ss@(Subscript (Variable name) e) = do
   index <- evalExpr e
   st <- getSymTable
@@ -125,16 +129,15 @@ evalExpr' (Str i) = return $ VString i
 
 
 evalExpr' e = do
-  return $ todoU "an unsupported expression was found" e VNull
+  todo "an unsupported expression was found" e
 
 
 evalPipe :: [Expr] -> Handle.Handle -> WithState Value
 evalPipe exprs stdin = do
-  goods :: [(String, [Value])] <- mapM evalArgs exprs
-  let commands = map (\(v, vs) -> (v, map (\(VString v2) -> v2) vs)) goods
+  commands <- mapM evalArgs exprs
   Process.evalPipe commands stdin evalExpr
   where
     evalArgs (FunctionInvocation name args) = do
-      as <- mapM eval2Str args
-      return (name, as)
-    evalArgs e = return $ todoU "how do we invoke non-FunctionInvocations" e ("", [VNull])
+      args2 <- mapM evalExpr args
+      return (name, args2)
+    evalArgs e = todo "how do we invoke non-FunctionInvocations" e

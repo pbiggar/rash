@@ -6,15 +6,28 @@ import           Control.Monad.IO.Class (liftIO)
 
 import qualified Rash.Util as Util
 import           Rash.Runtime
+import           Rash.Debug
 
 
 
 builtins :: Map.Map String Function
-builtins = Map.insert "sys.exit" (Builtin sysExit) Map.empty
+builtins = m2
+  where
+    m0 = Map.empty
+    m1 = Map.insert "sys.exit" (Builtin sysExit) m0
+    m2 = Map.insert "length" (Builtin length_) m1
+
 
 sysExit :: BuiltinFunction
 sysExit [] = sysExit $ [VInt 0]
 sysExit [code] = do
   _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ v2int code
   return VNull
-sysExit a = error $ "todo types" ++ (show a)
+sysExit a = todo "todo types" a
+
+length_ :: BuiltinFunction
+length_ a@[] = todo "empty length" a
+length_ [VString s] = do
+  return $ VInt $ length s
+length_ [VArray s] = do
+  return $ VInt $ length s

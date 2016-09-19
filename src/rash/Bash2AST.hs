@@ -333,6 +333,9 @@ postProcess = transformBi f
       f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
         = (Binop s op Null)
 
+      f (FunctionInvocation "string.nonblank?" [s@(Subscript (Variable "sys.argv") _)])
+        = s
+
       f x = x
 
       convertExitArg (Str v) = Integer (read v :: Int)
