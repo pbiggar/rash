@@ -7,7 +7,6 @@ import qualified GHC.IO.Handle as Handle
 
 import           Rash.AST
 
-
 data Value = VInt Int
            | VString String
            | VBool Bool
@@ -28,7 +27,7 @@ data Function = UserDefined FuncDef
 type SymTable = Map.Map String Value
 type FuncTable = Map.Map String Function
 data Frame = Frame {symtable::SymTable, handles_::Handles} deriving (Show)
-data IState = IState {frame_::Frame, functable::FuncTable}
+data IState = IState {frame_::Frame, functable::FuncTable} deriving (Show)
 type WithState a = State.StateT IState IO a
 
 data Handles = Handles {stdin_::Handle.Handle
@@ -37,6 +36,12 @@ data Handles = Handles {stdin_::Handle.Handle
                       deriving (Show)
 
 
+instance (Show Function) where
+       show (UserDefined (FuncDef n _ _)) = n
+       show (Builtin _) = "Some builtin function"
+
+getState :: WithState IState
+getState = State.get
 
 getStdin :: WithState Handle.Handle
 getStdin = State.gets $ stdin_ . handles_ . frame_
@@ -46,6 +51,9 @@ getStdout = State.gets $ stdout_ . handles_ . frame_
 
 getStderr :: WithState Handle.Handle
 getStderr = State.gets $ stderr_ . handles_ . frame_
+
+getFrame :: WithState Frame
+getFrame = State.gets frame_
 
 getSymTable :: WithState SymTable
 getSymTable = State.gets $ symtable . frame_
@@ -58,7 +66,7 @@ updateFuncTable newTable = do
   s <- State.get
   State.put $ s {functable = newTable (functable s)}
 
-updateSymTable :: (SymTable -> SymTable) -> State.StateT IState IO ()
+updateSymTable :: (SymTable -> SymTable) -> WithState ()
 updateSymTable newTable = do
   s <- State.get
   let f = frame_ s
@@ -70,4 +78,4 @@ v2int :: Value -> Int
 v2int (VInt i) = i
 v2int v = error $ "not an int: " ++ (show v)
 
-type RunExprFn  = Expr -> SymTable -> Handles -> FuncTable -> IO Value
+type EvalExprFn  = Expr -> WithState Value

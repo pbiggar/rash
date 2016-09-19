@@ -4,20 +4,35 @@ module Rash.Interpreter where
 import qualified Data.Map.Strict as Map
 import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad (when)
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
 import qualified Text.Groom as G
 import qualified System.IO as IO
+import qualified System.IO.Unsafe as Unsafe
 
 
 import Rash.AST
 import Rash.Builtins as Builtins
 import Rash.Runtime
 import qualified Rash.Process as Process
+import qualified Rash.Options as Options
 
-todo :: Show a => String -> a -> b
---todo reason a = VTodo reason (show a)
-todo reason a = error (reason ++ ": " ++ (show a))
+
+todo :: Show a => Show b => a -> b -> c -> IO c
+todo x y z = do
+  print $ (show x) ++ ": " ++ (show y)
+  return z
+
+todoU :: Show a => Show b => a -> b -> c -> c
+todoU x y z = Unsafe.unsafePerformIO $ todo x y z
+
+debug :: Show a => a -> IO ()
+debug x = do
+  when Options.flags_debug $ print x
+
+debugU :: Show a => a -> ()
+debugU x = Unsafe.unsafePerformIO $ debug x
 
 
 findWithDefault :: [a] -> Int -> a -> a
@@ -26,26 +41,15 @@ findWithDefault list index def =
     then def
     else list !! index
 
-debug :: Show a => a -> IO ()
-debug _ = return ()
---debug x = putStrLn $ "Debug: " ++ show x
-
-
-runExpr :: RunExprFn
-runExpr expr st hs ft = do
-  (val, _) <- State.runStateT (evalExpr expr)
-                                  (IState
-                                  (Frame st hs)
-                                  ft)
-  return val
 
 interpret :: Program -> [String] -> IO Value
 interpret (Program expr) args = do
-  let initialSymTable = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
-  let initialFuncTable = Builtins.builtins
-  let handles = Handles IO.stdin IO.stdout IO.stderr
-  val <- runExpr expr initialSymTable handles initialFuncTable
-  -- debug $ "Final state: " ++ show final
+  let st = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
+  let ft = Builtins.builtins
+  let hs = Handles IO.stdin IO.stdout IO.stderr
+  let state = IState (Frame st hs) ft
+  (val, final) <- State.runStateT (evalExpr expr) state
+  _ <- liftIO $ debug $ "Final state: " ++ (show final)
   return val
 
 isTruthy :: Value -> Bool
@@ -59,7 +63,7 @@ isTruthy VNull = False
 isTruthy (VTodo _ _) = False
 isTruthy (VArray _) = True
 isTruthy (VHash _) = True
-isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
+isTruthy vp@(VPacket _) = todoU "should vpacket be truthy?" vp False
 
 eval2Str :: Expr -> WithState Value
 eval2Str e = do
@@ -69,7 +73,7 @@ eval2Str e = do
 
 toString :: Value -> Value
 toString s@(VString _) = s
-toString v = todo "Not a string" v
+toString v = todoU "Not a string" v v
 
 evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
@@ -109,7 +113,7 @@ evalExpr' ss@(Subscript (Variable name) e) = do
   return $ case (var, index) of
     (Just (VArray a), VInt i) -> findWithDefault a i VNull
     (Just (VHash h), VString s) -> Map.findWithDefault VNull s h
-    _ -> todo "Can't do a subscript unless on array/int or hash/string" (ss, var, index)
+    _ -> todoU "Can't do a subscript unless on array/int or hash/string" (ss, var, index) VNull
 
 evalExpr' (Assignment (LVar name) e) = do
   result <- evalExpr e
@@ -139,18 +143,16 @@ evalExpr' (Str i) = return $ VString i
 
 
 evalExpr' e = do
-  liftIO $ debug "an unsupported expression was found"
-  liftIO $ debug e
-  _ <- error "ending early"
-  return $ todo "an unsupported expression was found" e
+  return $ todoU "an unsupported expression was found" e VNull
+
 
 evalPipe :: [Expr] -> Handle.Handle -> WithState Value
 evalPipe exprs stdin = do
   goods :: [(String, [Value])] <- mapM evalArgs exprs
   let commands = map (\(v, vs) -> (v, map (\(VString v2) -> v2) vs)) goods
-  Process.evalPipe commands stdin runExpr
+  Process.evalPipe commands stdin evalExpr
   where
     evalArgs (FunctionInvocation name args) = do
       as <- mapM eval2Str args
       return (name, as)
-    evalArgs e = todo "how do we invoke non-FunctionInvocations" e
+    evalArgs e = return $ todoU "how do we invoke non-FunctionInvocations" e ("", [VNull])

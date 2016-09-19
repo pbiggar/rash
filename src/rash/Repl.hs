@@ -21,5 +21,5 @@ until_ pred_ prompt action = do
 
 runRepl :: IO ()
 runRepl = until_ (== "quit")
-                 (readPrompt "Lisp>>> ")
+                 (readPrompt "rash> ")
                  (Runner.evalAndPrint "repl")

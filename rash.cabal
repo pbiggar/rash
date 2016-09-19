@@ -20,6 +20,7 @@ library
                      , Rash.Bash2AST
                      , Rash.Builtins
                      , Rash.Interpreter
+                     , Rash.Options
                      , Rash.Process
                      , Rash.Repl
                      , Rash.Runner
@@ -35,6 +36,8 @@ library
                      , containers
                      , process >= 1.4.2.0
                      , async
+                     , hflags
+
   default-language:    Haskell2010
 
 executable rash-exe
@@ -42,6 +45,7 @@ executable rash-exe
   main-is:             Main.hs
   build-depends:       base
                      , rash
+                     , hflags
   default-language:    Haskell2010
 
 test-suite rash-test

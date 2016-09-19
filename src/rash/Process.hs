@@ -17,7 +17,7 @@ import qualified Control.Monad.Trans.State as State
 import Rash.AST
 import Rash.Runtime as Runtime
 
-evalPipe :: [(String, [String])] -> Handle.Handle -> RunExprFn -> WithState Value
+evalPipe :: [(String, [String])] -> Handle.Handle -> EvalExprFn -> WithState Value
 evalPipe commands stdin evalProgram = do
   -- TODO: when you call a pipe, what do you do with the "output"? Obviously,
   -- you stream it to the parent. And occasionally the parent will be stdout. So
@@ -81,33 +81,29 @@ createBackgroundProc cmd args (Handles stdin stdout stderr) = do
   return $ ProcProc proc
 
 
-createFuncThread :: Function -> [String] -> Handles -> RunExprFn -> WithState Process
-createFuncThread func args handles runExpr = do
-  ft <- getFuncTable
+createFuncThread :: Function -> [String] -> Handles -> EvalExprFn -> WithState Process
+createFuncThread func args handles evalExpr = do
+  state <- getState
 
-  -- (returnVal, state) -- state is dontcare
   asyncid <- do liftIO $ Async.async $ do
-                  _ <- runFunction func args handles ft runExpr
+                  _ <- runFunction func args handles state evalExpr
                   return ()
   return $ FuncProc asyncid
 
-runFunction :: Function -> [String] -> Handles -> FuncTable -> RunExprFn -> IO Value
+runFunction :: Function -> [String] -> Handles -> IState -> EvalExprFn -> IO Value
 runFunction (UserDefined (FuncDef _ params body))
-            args handles ft runExpr = do
+            args handles state evalExpr = do
   -- new stack frame, with args TODO: copy the "globals"
   let st = foldr (\((FunctionParameter param), arg)
                    table
                    -> Map.insert param (VString arg) table)
                    Map.empty
                    (zip params args)
+  let newState = state { frame_ = Frame st handles }
 
-  v <- runExpr body st handles ft
-  return v
+  State.evalStateT (evalExpr body) newState
 
-runFunction (Builtin fn) args hs ft _ = do
+runFunction (Builtin fn) args handles state _ = do
   let args1 = map VString args
-  (val, _) <- State.runStateT (fn args1)
-                                  (IState
-                                   (Frame Map.empty hs)
-                                   ft)
-  return val
+  let newState = state { frame_ = Frame Map.empty handles }
+  State.evalStateT (fn args1) $ newState

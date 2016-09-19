@@ -8,22 +8,20 @@ import Rash.AST
 import Rash.Runtime
 import qualified Rash.Interpreter as Interpreter
 import qualified Rash.Bash2AST as Bash2AST
+import qualified Rash.Options as Options
 
-
-debug :: Bool
-debug = False
 
 evalAndPrint :: String -> String -> IO ()
 evalAndPrint name source = do
-  _ <- case (Bash2AST.translate name source) of
+  result <- case (Bash2AST.translate name source) of
     Left err -> return . show $ err
     Right prog -> Interpreter.interpret prog [] >>= return .show
-  --putStrLn result
+  putStrLn result
   return ()
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
-  putStr $ if debug then (G.groom program) else ""
+  putStr $ if (Options.flags_debug) then (G.groom program) else ""
   exit <- Interpreter.interpret program args
   return $ convertToExitCode exit
 
@@ -33,14 +31,14 @@ runSource name source args = do
     (\err -> (do
                 print err
                 return $ Exit.ExitFailure (-1)))
-    ((flip runProgram) args)
+    (\prog -> runProgram prog args)
     (Bash2AST.translate name source)
 
 
-runFile :: FilePath -> [String] -> IO Exit.ExitCode
-runFile file args = do
+runFile :: FilePath -> IO Exit.ExitCode
+runFile file = do
   src <- readFile file
-  runSource file src args
+  runSource file src []
 
 convertToExitCode :: Value -> Exit.ExitCode
 convertToExitCode (VInt i) = if i == 0 then Exit.ExitSuccess else Exit.ExitFailure i
