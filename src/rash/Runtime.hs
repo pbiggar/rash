@@ -74,7 +74,6 @@ updateSymTable newTable = do
   State.put $ s {frame_ = newFrame}
 
 v2int :: Value -> Int
-
 v2int (VInt i) = i
 v2int v = error $ "not an int: " ++ (show v)
 

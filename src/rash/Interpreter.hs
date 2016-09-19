@@ -2,37 +2,19 @@
 module Rash.Interpreter where
 
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad (when)
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
 import qualified Text.Groom as G
 import qualified System.IO as IO
-import qualified System.IO.Unsafe as Unsafe
 
-
-import Rash.AST
-import Rash.Builtins as Builtins
-import Rash.Runtime
+import           Rash.AST
+import           Rash.Builtins as Builtins
+import           Rash.Debug
 import qualified Rash.Process as Process
-import qualified Rash.Options as Options
-
-
-todo :: Show a => Show b => a -> b -> c -> IO c
-todo x y z = do
-  print $ (show x) ++ ": " ++ (show y)
-  return z
-
-todoU :: Show a => Show b => a -> b -> c -> c
-todoU x y z = Unsafe.unsafePerformIO $ todo x y z
-
-debug :: Show a => a -> IO ()
-debug x = do
-  when Options.flags_debug $ print x
-
-debugU :: Show a => a -> ()
-debugU x = Unsafe.unsafePerformIO $ debug x
+import           Rash.Runtime
 
 
 findWithDefault :: [a] -> Int -> a -> a
@@ -49,7 +31,7 @@ interpret (Program expr) args = do
   let hs = Handles IO.stdin IO.stdout IO.stderr
   let state = IState (Frame st hs) ft
   (val, final) <- State.runStateT (evalExpr expr) state
-  _ <- liftIO $ debug $ "Final state: " ++ (show final)
+  debugIO $ "Final state: " ++ (show final)
   return val
 
 isTruthy :: Value -> Bool
@@ -63,7 +45,7 @@ isTruthy VNull = False
 isTruthy (VTodo _ _) = False
 isTruthy (VArray _) = True
 isTruthy (VHash _) = True
-isTruthy vp@(VPacket _) = todoU "should vpacket be truthy?" vp False
+isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
 
 eval2Str :: Expr -> WithState Value
 eval2Str e = do
@@ -73,17 +55,17 @@ eval2Str e = do
 
 toString :: Value -> Value
 toString s@(VString _) = s
-toString v = todoU "Not a string" v v
+toString v = todo "Not a string" v
 
 evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
-  let _ = debug $ "executing a list with " ++ (show (length es)) ++ " exprs"
+  liftIO $ debugIO $ "executing a list with " ++ (show (length es)) ++ " exprs"
   evalExpr' e
 
 evalExpr e = do
-  let _ = debug $ "executing: " ++ (G.groom e)
+  liftIO $ debugIO $ "executing: " ++ (G.groom e)
   v <- evalExpr' e
-  let _ = debug $ "returning: " ++ (show v)
+  liftIO $ debugIO $ "returning: " ++ (show v) ++ " <- " ++ (G.groom e)
   return v
 
 evalExpr' :: Expr -> WithState Value
@@ -113,7 +95,7 @@ evalExpr' ss@(Subscript (Variable name) e) = do
   return $ case (var, index) of
     (Just (VArray a), VInt i) -> findWithDefault a i VNull
     (Just (VHash h), VString s) -> Map.findWithDefault VNull s h
-    _ -> todoU "Can't do a subscript unless on array/int or hash/string" (ss, var, index) VNull
+    _ -> todo "Can't do a subscript unless on array/int or hash/string" (ss, var, index)
 
 evalExpr' (Assignment (LVar name) e) = do
   result <- evalExpr e

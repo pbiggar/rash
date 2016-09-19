@@ -15,25 +15,27 @@ import qualified Data.Typeable as Typeable
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
 import           Data.Generics.Uniplate.Data(transformBi)
-import Rash.AST
 import qualified System.IO.Unsafe as UnsafeIO
 
+import Rash.AST
+
 -- | Debugging
-debugStr :: (Show a, BashPretty.Pretty a) => a -> String -> String
-debugStr x reason = "TODO (" ++ reason ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
+debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
+debugStr msg x = "TODO (" ++ msg ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
 
-debug :: (Show a, BashPretty.Pretty a) => a -> String -> Expr
-debug x reason = Debug (debugStr x reason)
+debug :: (Show a, BashPretty.Pretty a) => String -> a -> b
+debug msg x = UnsafeIO.unsafePerformIO $ do
+  error $ msg ++ " -> " ++ (show x)
 
-debugWithType :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => a -> String -> Expr
-debugWithType x reason = debug x (reason ++ " " ++ show (Typeable.typeOf x))
+debugD :: (Show a, BashPretty.Pretty a) => String -> a -> Expr
+debugD msg x = Debug (debugStr msg  x)
 
-printDebug :: (Show a) => String -> a -> a
-printDebug reason x = UnsafeIO.unsafePerformIO $ do
-  putStrLn reason
-  putStr " -> "
-  print $ show x
-  return x
+debugT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> b
+debugT msg x = debug (msg ++ " " ++ (show $ Typeable.typeOf x)) x
+
+debugDT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> Expr
+debugDT msg x = debugD (msg ++ " " ++ (show $ Typeable.typeOf x)) x
+
 
 -- | Lists
 convertList :: S.List -> Expr
@@ -67,7 +69,7 @@ convertCommand (S.Command sc rs) =
 
 convertRedir :: Expr -> S.Redir -> Expr
 convertRedir expr (S.Heredoc S.Here _ False doc) = (Stdin (convertWord doc) expr)
-convertRedir _ r = debugWithType r "cr"
+convertRedir _ r = debugDT "cr" r
 
 -- | Commands
 convertShellCommand :: S.ShellCommand -> Expr
@@ -88,7 +90,7 @@ convertShellCommand (S.SimpleCommand as ws) =
 
 convertShellCommand (S.AssignBuiltin w es)
     | w == W.fromString "local" = listOrExpr (map convertAssignOrWord es)
-    | otherwise = debugWithType w "ccscab"
+    | otherwise = debugDT "ccscab" w
 
 convertShellCommand (S.Cond e) = convertCondExpr e
 convertShellCommand (S.FunctionDef name cmds) =
@@ -103,7 +105,7 @@ convertShellCommand (S.While expr cmds) =
 convertShellCommand (S.Group list) =
     convertList list
 
-convertShellCommand x = debugWithType x $ "cc"
+convertShellCommand x = debugDT "cc" x
 
 
 -- | SimpleCommands (assignments)
@@ -117,7 +119,7 @@ convertAssign :: S.Assign -> Expr
 convertAssign (S.Assign (W.Parameter name _) S.Equals (S.RValue r)) =
   Assignment (LVar name) (convertWord r)
 
-convertAssign a = debug a "convertAssign"
+convertAssign a = debugT "convertAssign" a
 
 convertAssignOrWord :: Either S.Assign W.Word -> Expr
 convertAssignOrWord = either convertAssign convertWord
@@ -132,9 +134,9 @@ convertWordList (S.WordList wl) = listOrExpr (map convertWord wl)
 convertWords :: [W.Word] -> Expr
 convertWords ([W.Char '['] : ws)
     | (convertString . last $ ws) == "]" = convertTest . init $ ws
-    | otherwise = debugWithType ws "cw"
+    | otherwise = debugDT "cw" ws
 convertWords (w:ws) = convertFunctionCall (convertWord w) (map convertWord ws)
-convertWords ws@[] = debugWithType ws "cwEmpty"
+convertWords ws@[] = debugT "cwEmpty" ws
 
 convertWord :: W.Word -> Expr
 convertWord ss = cConcat [convertSpan s | s <- ss]
@@ -167,13 +169,13 @@ convertSpan (W.ParamSubst W.Delete {W.indirect = False
 convertSpan (W.Backquote w) = parseWord w
 
 
-convertSpan w = debugWithType w "cs"
+convertSpan w = debugDT "cs" w
 
 -- like convertWord but we expect a string
 convertString :: W.Word -> String
 convertString w = case convertWord w of
                     Str s -> s
-                    _ -> "TODO - couldnt get a string out of " ++ show w
+                    _ -> debug "not a string" w
 
 -- TODO: support first class functions?
 convertFunctionCall :: Expr -> [Expr] -> Expr
@@ -213,7 +215,7 @@ bop2FunctionName C.SameFile = "file.same?"
 bop2FunctionName C.NewerThan = "file.newer_than?"
 bop2FunctionName C.OlderThan = "file.older_than?"
 bop2FunctionName C.StrMatch = "re.matches"
-bop2FunctionName _ = "FAIL"
+bop2FunctionName x = debugT "binop" x
 
 -- | Function names for UnaryOps
 uop2FunctionName :: C.UnaryOp -> String
@@ -238,7 +240,7 @@ uop2FunctionName C.UserOwned = "file.isUserOwned"
 uop2FunctionName C.Socket = "file.isSocket"
 uop2FunctionName C.ZeroString = "string.blank?"
 uop2FunctionName C.NonzeroString = "string.nonblank?"
-uop2FunctionName a = debugStr (show a) "uop2FunctionName"
+uop2FunctionName a = debug "uop2FunctionName" a
 -- TODO: these ones are a bit odd
 -- uop2FunctionName C.Optname =
 -- uop2FunctionName C.Varname =

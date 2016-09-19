@@ -2,6 +2,7 @@
 module Main where
 
 import qualified System.Exit as Exit
+import HFlags
 
 import qualified Rash.Runner as Runner
 import qualified Rash.Repl as Repl
@@ -9,7 +10,7 @@ import qualified Rash.Repl as Repl
 -- need this for HFlags to find the options
 import Rash.Options ()
 
-import HFlags
+
 
 main :: IO ()
 main = do
