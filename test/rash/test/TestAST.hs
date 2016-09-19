@@ -1,10 +1,11 @@
 module Rash.Test.TestAST (tests) where
 
-import           Rash.AST
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.ExpectedFailure (expectFail)
-import           Rash.Bash2AST(translate)
+
+import           Rash.AST
+import           Rash.Bash2AST (translate)
 
 tests :: TestTree
 tests = testGroup "AST tests" [unitTests, bugs]
@@ -21,7 +22,7 @@ testExpected source expected =
 
 -- | Shortcut for building FunctionInvocations
 fi :: String -> [Expr] -> Expr
-fi name args = FunctionInvocation (Str name) args
+fi name args = FunctionInvocation name args
 
 unitTests :: TestTree
 unitTests =
@@ -52,9 +53,10 @@ unitTests =
                   "sys.exit"
                   [Integer 1])
   , testExpected "[ \"`uname`\" = Darwin ]"
-                 (Equals
+                 (Binop
                   (fi "uname" [])
-                   (Str "Darwin"))
+                  Equals
+                  (Str "Darwin"))
   , testExpected "arg=$1"
                  (Assignment
                    (LVar "arg")
@@ -78,16 +80,17 @@ bugs =
                   , Str "https*"])
   , testExpected "function x() { arg=$1; }"
                  (FunctionDefinition
-                   "x"
-                   [FunctionParameter "arg"]
-                   Nop)
+                   (FuncDef
+                     "x"
+                     [FunctionParameter "arg"]
+                     Nop))
   , testExpected "$GH_GREP | \\\n sed 'asd' \n\n"
                   (Pipe
                     [FunctionInvocation
-                      (Variable "a")
+                      "a"
                       [Str "b", Str "c"]
                    , FunctionInvocation
-                      (Variable "d")
+                      "d"
                       []])
   , testExpected "arguments()" Nop
   ])
