@@ -31,3 +31,4 @@ length_ [VString s] = do
   return $ VInt $ length s
 length_ [VArray s] = do
   return $ VInt $ length s
+length_ a = todo "length should support more types" a

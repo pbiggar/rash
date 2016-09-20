@@ -3,6 +3,7 @@ module Rash.Runner (runSource, runFile, evalAndPrint) where
 import qualified Data.Either as Either
 import qualified System.Exit as Exit
 import qualified Text.Groom as G
+import           Control.Monad (when)
 
 import Rash.AST
 import Rash.Runtime
@@ -21,7 +22,7 @@ evalAndPrint name source = do
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
-  putStr $ if (Options.flags_debug) then (G.groom program) else ""
+  when (Options.flags_debug) $ putStrLn $ (G.groom program)
   exit <- Interpreter.interpret program args
   return $ convertToExitCode exit
 
