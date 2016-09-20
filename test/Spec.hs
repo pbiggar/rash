@@ -3,9 +3,8 @@ module Main (main) where
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
---import           Test.Tasty.ExpectedFailure (expectFail)
 import           Data.Generics.Uniplate.Operations
-import           System.IO.Silently
+import qualified System.IO.Silently as Silently
 import           System.Exit
 
 import HFlags
@@ -14,11 +13,12 @@ import qualified Rash.Bash2AST as Bash2AST
 import qualified Rash.Test.TestAST as TestAST
 import qualified Rash.Runner as Runner
 import qualified Rash.AST as AST
+import           Rash.Options()
 
 main :: IO ()
 
 main = do
-  _ <- $initHFlags []
+  _ <- $initHFlags "test"
   pts <- fullParseTests
   cts <- codeTests
   defaultMain $ testGroup "Tests" [TestAST.tests, pts, cts]
@@ -40,8 +40,8 @@ testRuns filename expectedCode expectedOutput = let
     checkOutputExpected output = expectedOutput @=? output
     checkCodeExpected   code =   expectedCode @=? code
     in do
-        (captured, exitCode) <- capture $ Runner.runFile filename
         return $ testCaseSteps ("Interpreter test: " ++ filename) $ \step -> do
+            (captured, exitCode) <- Silently.capture $ Runner.runFile filename
             step "check output"
             checkOutputExpected captured
             checkCodeExpected exitCode
@@ -50,8 +50,8 @@ testCode :: String -> String -> IO TestTree
 testCode source expectedOutput = let
     checkOutputExpected output = expectedOutput @=? output
     in do
-        (captured, _) <- capture $ Runner.runSource "__src__" source []
         return $ testCaseSteps ("Interpreter test: " ++ source) $ \step -> do
+            (captured, _) <- Silently.capture $ Runner.runSource "__src__" source []
             step "check output"
             checkOutputExpected captured
 
@@ -64,8 +64,8 @@ codeTests = do
 
 fullParseTests :: IO TestTree
 fullParseTests =
-    do spacemanDiff <- testParses "data/spaceman-diff"
+    do test1 <- testParses "data/spaceman-diff"
        test2 <- testParses "data/le.sh"
        test3 <- testRuns "data/spaceman-diff" ExitSuccess expected
-       return $ testGroup "Parse tests" [test3]
+       return $ testGroup "Parse tests" [test1, test2, test3]
        where expected = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modA fileB shaB modeB\n"
