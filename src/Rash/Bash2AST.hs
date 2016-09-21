@@ -36,6 +36,8 @@ debugT msg x = debug (msg ++ " " ++ (show $ Typeable.typeOf x)) x
 debugDT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> Expr
 debugDT msg x = debugD (msg ++ " " ++ (show $ Typeable.typeOf x)) x
 
+fc :: String -> [Expr] -> Expr
+fc = FunctionCall
 
 -- | Lists
 convertList :: S.List -> Expr
@@ -58,6 +60,10 @@ listOrPipe :: [Expr] -> Expr
 listOrPipe [e] = e
 listOrPipe es = Pipe es
 
+addToPipe :: Expr -> Expr -> Expr
+addToPipe (Pipe ps) new = Pipe (ps ++ [new])
+addToPipe expr1 expr2 = Pipe [expr1, expr2]
+
 convertPipeline :: S.Pipeline -> Expr
 -- ignored timing and inverted. I think this is right.
 convertPipeline (S.Pipeline _ _ _ cs) =
@@ -69,6 +75,27 @@ convertCommand (S.Command sc rs) =
 
 convertRedir :: Expr -> S.Redir -> Expr
 convertRedir expr (S.Heredoc S.Here _ False doc) = (Stdin (convertWord doc) expr)
+convertRedir expr (S.Redir {S.redirDesc=Nothing
+                          , S.redirOp=S.Append
+                          , S.redirTarget=file}) =
+   addToPipe expr (fc "stdout.appendToFile" [convertWord file])
+convertRedir expr (S.Redir {S.redirDesc=Just(S.IONumber 2)
+                          , S.redirOp=S.OutAnd
+                          , S.redirTarget=[W.Char '1']}) =
+   addToPipe expr (fc "stderr.intoStdout" [])
+convertRedir expr (S.Redir {S.redirDesc=Nothing
+                          , S.redirOp=S.OutAnd
+                          , S.redirTarget=[W.Char '2']}) =
+   addToPipe expr (fc "stderr.replaceStdout" [])
+convertRedir expr (S.Redir {S.redirDesc=Nothing
+                          , S.redirOp=S.Out
+                          , S.redirTarget=file}) =
+   addToPipe expr (fc "stdout.writeToFile" [convertWord file])
+convertRedir expr (S.Redir {S.redirDesc=Just(S.IONumber 2)
+                          , S.redirOp=S.Out
+                          , S.redirTarget=file}) =
+   addToPipe expr (fc "stderr.writeToFile" [convertWord file])
+
 convertRedir _ r = debugDT "cr" r
 
 -- | Commands
@@ -147,11 +174,13 @@ convertSpan (W.Double w) = cConcat [convertWord w]
 convertSpan (W.Single w) = cConcat [convertWord w]
 convertSpan (W.Escape c) = Str [c]
 convertSpan (W.CommandSubst c) = parseString c
+convertSpan (W.ProcessSubst W.ProcessIn w) =
+  addToPipe (Exec w) (fc "sys.procSubst" [])
 convertSpan (W.ParamSubst W.Brace {W.indirect = False,
                                     W.parameter = (W.Parameter p Nothing)})
     = Variable p
 convertSpan (W.ParamSubst W.Length {W.parameter = (W.Parameter p Nothing)})
-    = FunctionInvocation "string.length" [Variable p]
+    = fc "string.length" [Variable p]
 convertSpan (W.ParamSubst W.Bare {W.parameter = (W.Parameter p Nothing)})
     = Variable p
 convertSpan (W.ParamSubst W.Delete {W.indirect = False
@@ -159,7 +188,7 @@ convertSpan (W.ParamSubst W.Delete {W.indirect = False
                                   , W.longest = longest
                                   , W.deleteDirection = direction
                                   , W.pattern = pattern })
-    = FunctionInvocation ("string." ++ name) args
+    = fc ("string." ++ name) args
       where
         name = if direction == W.Front then "replace_front" else "replace_back"
         args = [Variable p, convertWord pattern] ++ longestArgs
@@ -177,18 +206,10 @@ convertString w = case convertWord w of
                     Str s -> s
                     _ -> debug "not a string" w
 
--- TODO: support first class functions?
+-- | Functions
 convertFunctionCall :: Expr -> [Expr] -> Expr
-convertFunctionCall (Str name) args = convertFunctionCall' name args
-convertFunctionCall name args = Debug ("not named: " ++ (show name) ++ (show args))
-
-convertFunctionCall' :: String -> [Expr] -> Expr
--- TODO: convert this into some sort of exception
-convertFunctionCall' "set" [Str "-e"] = Nop
-convertFunctionCall' "set" [Str "+e"] = Nop
-
-convertFunctionCall' name args = FunctionInvocation name args
-
+convertFunctionCall (Str name) args = fc name args
+convertFunctionCall fn args = (IndirectFunctionCall fn args)
 
 -- | CondExprs
 convertCondExpr :: C.CondExpr W.Word -> Expr
@@ -196,7 +217,7 @@ convertCondExpr (C.Not e) = Unop Not (convertCondExpr e)
 convertCondExpr (C.And a b) = Binop (convertCondExpr a) And (convertCondExpr b)
 convertCondExpr (C.Or a b) = Binop (convertCondExpr a) Or (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
-    FunctionInvocation (uop2FunctionName uop) [convertWord w]
+    fc (uop2FunctionName uop) [convertWord w]
 convertCondExpr (C.Binary l C.StrEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.ArithEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.StrNE r) = Unop Not (Binop (convertWord l) Equals (convertWord r))
@@ -206,7 +227,7 @@ convertCondExpr (C.Binary l C.ArithLT r) = Binop (convertWord l) LessThan (conve
 convertCondExpr (C.Binary l C.StrGT r) = Binop (convertWord l) GreaterThan (convertWord r)
 convertCondExpr (C.Binary l C.ArithLE r) = Unop Not (Binop (convertWord l) GreaterThan (convertWord r))
 convertCondExpr (C.Binary l C.ArithGE r) = Unop Not (Binop (convertWord l) LessThan (convertWord r))
-convertCondExpr (C.Binary l bop r) = FunctionInvocation (bop2FunctionName bop) [convertWord l, convertWord r]
+convertCondExpr (C.Binary l bop r) = fc (bop2FunctionName bop) [convertWord l, convertWord r]
 
 
 -- | Function names for BinaryOps
@@ -302,17 +323,17 @@ postProcess = transformBi f
           For v rv block
 
       -- | Convert `read input` into `input = sys.read()`
-      f (FunctionInvocation "read" [Str var]) =
+      f (FunctionCall "read" [Str var]) =
           Assignment (LVar var)
-                        (FunctionInvocation "sys.read" [])
+                        (fc "sys.read" [])
 
       -- | Convert `type wget` into `sys.onPath wget`
-      f (FunctionInvocation "type" args) =
-          FunctionInvocation "sys.onPath" args
+      f (FunctionCall "type" args) =
+          fc "sys.onPath" args
 
       -- | Convert exit and it's arguments
-      f (FunctionInvocation "exit" args) =
-          FunctionInvocation "sys.exit"
+      f (FunctionCall "exit" args) =
+          fc "sys.exit"
                               (map convertExitArg args)
 
       -- | Convert $1, $2, etc to sys.argv[1] etc
@@ -327,15 +348,20 @@ postProcess = transformBi f
       f (Variable "9") = Subscript (Variable "sys.argv") (Integer 9)
       -- | Convert $# to sys.argv.length
       -- | Convert $@ to sys.argv
-      f (Variable "#") = FunctionInvocation "length" [Variable "sys.argv"]
+      f (Variable "#") = Pipe [Variable "sys.argv", fc "length" []]
       f (Variable "@") = Variable "sys.argv"
 
       f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
         = (Binop s op Null)
 
-      f (FunctionInvocation "string.nonblank?" [s@(Subscript (Variable "sys.argv") _)])
+      f (FunctionCall "string.nonblank?" [s@(Subscript (Variable "sys.argv") _)])
         = s
 
+      -- TODO: convert this into some sort of exception
+      f (FunctionCall "set" [Str "-e"]) = Nop
+      f (FunctionCall "set" [Str "+e"]) = Nop
+
+      f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = (fc "stderr.ignore" [])
       f x = x
 
       convertExitArg (Str v) = Integer (read v :: Int)
@@ -356,6 +382,8 @@ postProcessFunctionDefs = id
 -- shell redirection
 
 -- | handle builtins
+-- $# -> sys.argv | length
+-- process substitution (pipe into sys.procSub)
 -- echo (-e)
 -- basename
 -- printf

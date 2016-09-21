@@ -48,8 +48,12 @@ data Expr =
   -- | Temporary
   | Debug String
   | Nop
+
   -- | Functions
-  | FunctionInvocation String [Expr]
+  | FunctionCall String [Expr]
+  | IndirectFunctionCall Expr [Expr]
+  | Exec String
+
   | FunctionDefinition FuncDef
   | Stdin Expr Expr
 

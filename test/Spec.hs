@@ -27,7 +27,7 @@ main = do
 -- | a test that a bash script parses without Debug statements
 testParses :: String -> IO TestTree
 testParses file =
-    let failure e = assertFailure ("parseError" ++ (show e))
+    let failure e = assertFailure ("parseError: " ++ show e)
         checkASTSuccess ast = [] @=? [ s | AST.Debug s <- universeBi ast ]
     in do
       src <- readFile file
@@ -59,18 +59,18 @@ testCode source expectedOutput = let
 
 codeTests :: IO TestTree
 codeTests = do
---  t1 <- testCode "2 + 2" "4"
+  t1 <- testCode "echo $((2 + 2))" "4"
 --  t2 <- testCode "die 255"
-  return $ testGroup "code tests" []
+  return $ testGroup "code tests" [t1]
 
 fullRunTests :: IO TestTree
 fullRunTests =
-  do test1 <- testRuns "data/spaceman-diff" ExitSuccess expected
-     return $ testGroup "Run tests" [test1]
+  do t1 <- testRuns "data/spaceman-diff" ExitSuccess expected
+     return $ testGroup "Run tests" [t1]
   where expected = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modA fileB shaB modeB\n"
 
 fullParseTests :: IO TestTree
 fullParseTests =
-    do test1 <- testParses "data/spaceman-diff"
-       test2 <- testParses "data/le.sh"
-       return $ testGroup "Parse tests" [test1, test2]
+    do t1 <- testParses "data/spaceman-diff"
+       t2 <- testParses "data/le.sh"
+       return $ testGroup "Parse tests" [t1, t2]

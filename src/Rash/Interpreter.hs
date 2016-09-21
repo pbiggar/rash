@@ -106,7 +106,7 @@ evalExpr' (Assignment (LVar name) e) = do
   updateSymTable $ Map.insert name result
   return result
 
-evalExpr' f@(FunctionInvocation _ _) = evalExpr' (Pipe [f])
+evalExpr' f@(FunctionCall _ _) = evalExpr' (Pipe [f])
 
 evalExpr' (Pipe exprs) = do
   stdin <- getStdin
@@ -137,7 +137,7 @@ evalPipe exprs stdin = do
   commands <- mapM evalArgs exprs
   Process.evalPipe commands stdin evalExpr
   where
-    evalArgs (FunctionInvocation name args) = do
+    evalArgs (FunctionCall name args) = do
       args2 <- mapM evalExpr args
       return (name, args2)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e

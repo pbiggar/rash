@@ -21,40 +21,40 @@ testExpected source expected =
                  }
 
 -- | Shortcut for building FunctionInvocations
-fi :: String -> [Expr] -> Expr
-fi name args = FunctionInvocation name args
+fc :: String -> [Expr] -> Expr
+fc name args = FunctionCall name args
 
 unitTests :: TestTree
 unitTests =
   testGroup "Unit tests" [
     testExpected "a | b" (Pipe
-                          [fi "a" []
-                         , fi "b" []])
+                          [fc "a" []
+                         , fc "b" []])
   , testExpected "while yes; do echo y; done"
                  (For
                    AnonVar
-                   (fi "yes" [])
-                   (fi "echo" [Str "y"]))
+                   (fc "yes" [])
+                   (fc "echo" [Str "y"]))
   , testExpected "while read input; do echo $input; done"
                  (For
                    (LVar "input")
-                   (fi "sys.read" [])
-                   (fi "echo" [Variable "input"]))
+                   (fc "sys.read" [])
+                   (fc "echo" [Variable "input"]))
   , testExpected "read input"
                     (Assignment
                     (LVar "input")
-                    (fi "sys.read" []))
+                    (fc "sys.read" []))
   , testExpected "type wget"
-                 (fi
+                 (fc
                   "sys.onPath"
                   [Str "wget"])
   , testExpected "exit 1"
-                 (fi
+                 (fc
                   "sys.exit"
                   [Integer 1])
   , testExpected "[ \"`uname`\" = Darwin ]"
                  (Binop
-                  (fi "uname" [])
+                  (fc "uname" [])
                   Equals
                   (Str "Darwin"))
   , testExpected "arg=$1"
@@ -67,7 +67,7 @@ unitTests =
                  (For
                    (LVar "i")
                    (Variable "sys.argv")
-                   (fi "nop" []))
+                   (fc "nop" []))
     ]
 
 bugs :: TestTree
@@ -75,7 +75,7 @@ bugs =
   testGroup "Known bugs"
    (map expectFail [
     testExpected "[ $a == https* ]"
-                 (fi "string.matches?"
+                 (fc "string.matches?"
                    [Variable "a"
                   , Str "https*"])
   , testExpected "function x() { arg=$1; }"
@@ -86,11 +86,7 @@ bugs =
                      Nop))
   , testExpected "$GH_GREP | \\\n sed 'asd' \n\n"
                   (Pipe
-                    [FunctionInvocation
-                      "a"
-                      [Str "b", Str "c"]
-                   , FunctionInvocation
-                      "d"
-                      []])
+                    [fc "a" [Str "b", Str "c"]
+                   , fc "d" []])
   , testExpected "arguments()" Nop
   ])
