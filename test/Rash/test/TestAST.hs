@@ -14,7 +14,7 @@ tests = testGroup "AST tests" [unitTests, bugs]
 -- | A test with an expected value
 testExpected :: String -> Expr -> TestTree
 testExpected source expected =
-    testCase ("`" ++ source ++ "`") $
+    testCase ("`" ++ (filter ((/=) '\n') source) ++ "`") $
                case translate "test" source of
                  { Left err -> assertFailure ("parseError" ++ show err)
                  ; Right (Program prog) -> expected @=? prog
@@ -68,6 +68,11 @@ unitTests =
                    (LVar "i")
                    (Variable "sys.argv")
                    (fc "nop" []))
+  , testExpected "$GH_GREP | \\\n sed 'asd' \n\n"
+                 (Pipe
+                   [IndirectFunctionCall (Variable "GH_GREP") []
+                  , fc "sed" [Str "asd"]])
+
     ]
 
 bugs :: TestTree
@@ -84,9 +89,5 @@ bugs =
                      "x"
                      [FunctionParameter "arg"]
                      Nop))
-  , testExpected "$GH_GREP | \\\n sed 'asd' \n\n"
-                  (Pipe
-                    [fc "a" [Str "b", Str "c"]
-                   , fc "d" []])
   , testExpected "arguments()" Nop
   ])
