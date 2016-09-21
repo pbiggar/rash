@@ -334,8 +334,35 @@ postProcess = transformBi f
       -- | Convert exit and it's arguments
       f (FunctionCall "exit" args) =
           fc "sys.exit"
-                              (map convertExitArg args)
+          (map convertExitArg args)
 
+
+      -- TODO: convert this into some sort of exception
+      f (FunctionCall "set" [Str "-e"]) = Nop
+      f (FunctionCall "set" [Str "+e"]) = Nop
+
+      f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = (fc "stderr.ignore" [])
+      f x = x
+
+      convertExitArg (Str v) = Integer (read v :: Int)
+      convertExitArg v = v
+
+
+postProcessFunctionDefs :: Expr -> Expr
+postProcessFunctionDefs = transformBi f
+    where
+      f (FunctionDefinition (FuncDef name [] (List (Assignment (LVar lv) (Variable "1"): rest )))) =
+         FunctionDefinition (FuncDef name [FunctionParameter lv] $ List rest)
+      f x = x
+
+postProcessGlobals :: Program -> Program
+postProcessGlobals (Program (List exprs)) = Program $ List (map postProcessGlobalExpr exprs)
+postProcessGlobals (Program expr) = Program $ postProcessGlobalExpr expr
+
+postProcessGlobalExpr :: Expr -> Expr
+postProcessGlobalExpr fd@(FunctionDefinition _) = fd
+postProcessGlobalExpr e = transformBi f e
+    where
       -- | Convert $1, $2, etc to sys.argv[1] etc
       f (Variable "1") = Subscript (Variable "sys.argv") (Integer 1)
       f (Variable "2") = Subscript (Variable "sys.argv") (Integer 2)
@@ -357,20 +384,8 @@ postProcess = transformBi f
       f (FunctionCall "string.nonblank?" [s@(Subscript (Variable "sys.argv") _)])
         = s
 
-      -- TODO: convert this into some sort of exception
-      f (FunctionCall "set" [Str "-e"]) = Nop
-      f (FunctionCall "set" [Str "+e"]) = Nop
-
-      f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = (fc "stderr.ignore" [])
       f x = x
 
-      convertExitArg (Str v) = Integer (read v :: Int)
-      convertExitArg v = v
-
-
--- | Perform transformations across the AST (only within function definitions)
-postProcessFunctionDefs :: Expr -> Expr
-postProcessFunctionDefs = id
 
 
 -- || TODO:
@@ -446,4 +461,4 @@ translate :: String -> String -> Either ParseError Program
 translate name source =
     case BashParse.parse name source of
       Left err -> Left err
-      Right ans -> Right (postProcess (Program (convertList ans)))
+      Right ans -> Right $ postProcess $ postProcessGlobals $ Program $ convertList ans

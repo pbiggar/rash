@@ -72,7 +72,12 @@ unitTests =
                  (Pipe
                    [IndirectFunctionCall (Variable "GH_GREP") []
                   , fc "sed" [Str "asd"]])
-
+  , testExpected "function x() { arg=$1; exit $arg; }"
+                 (FunctionDefinition
+                   (FuncDef
+                     "x"
+                     [FunctionParameter "arg"]
+                     (List [(FunctionCall "sys.exit" [Variable "arg"])])))
     ]
 
 bugs :: TestTree
@@ -83,11 +88,4 @@ bugs =
                  (fc "string.matches?"
                    [Variable "a"
                   , Str "https*"])
-  , testExpected "function x() { arg=$1; }"
-                 (FunctionDefinition
-                   (FuncDef
-                     "x"
-                     [FunctionParameter "arg"]
-                     Nop))
-  , testExpected "arguments()" Nop
   ])
