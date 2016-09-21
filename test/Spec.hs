@@ -21,7 +21,8 @@ main = do
   _ <- $initHFlags "test"
   pts <- fullParseTests
   cts <- codeTests
-  defaultMain $ testGroup "Tests" [TestAST.tests, pts, cts]
+  rts <- fullRunTests
+  defaultMain $ testGroup "Tests" [TestAST.tests, pts, cts, rts]
 
 -- | a test that a bash script parses without Debug statements
 testParses :: String -> IO TestTree
@@ -51,21 +52,25 @@ testCode source expectedOutput = let
     checkOutputExpected output = expectedOutput @=? output
     in do
         return $ testCaseSteps ("Interpreter test: " ++ source) $ \step -> do
-            (captured, _) <- Silently.capture $ Runner.runSource "__src__" source []
+            (captured, _) <- Silently.capture $ Runner.runSource "test_src" source []
             step "check output"
             checkOutputExpected captured
 
 
 codeTests :: IO TestTree
 codeTests = do
-  t1 <- testCode "2 + 2" "4"
+--  t1 <- testCode "2 + 2" "4"
 --  t2 <- testCode "die 255"
-  return $ testGroup "code tests" [t1]
+  return $ testGroup "code tests" []
+
+fullRunTests :: IO TestTree
+fullRunTests =
+  do test1 <- testRuns "data/spaceman-diff" ExitSuccess expected
+     return $ testGroup "Run tests" [test1]
+  where expected = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modA fileB shaB modeB\n"
 
 fullParseTests :: IO TestTree
 fullParseTests =
     do test1 <- testParses "data/spaceman-diff"
        test2 <- testParses "data/le.sh"
-       test3 <- testRuns "data/spaceman-diff" ExitSuccess expected
-       return $ testGroup "Parse tests" [test1, test2, test3]
-       where expected = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modA fileB shaB modeB\n"
+       return $ testGroup "Parse tests" [test1, test2]

@@ -46,7 +46,7 @@ unitTests =
                     (fi "sys.read" []))
   , testExpected "type wget"
                  (fi
-                  "os.onPath"
+                  "sys.onPath"
                   [Str "wget"])
   , testExpected "exit 1"
                  (fi
