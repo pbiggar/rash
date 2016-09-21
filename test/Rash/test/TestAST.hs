@@ -14,13 +14,12 @@ tests = testGroup "AST tests" [unitTests, bugs]
 -- | A test with an expected value
 testExpected :: String -> Expr -> TestTree
 testExpected source expected =
-    testCase ("`" ++ (filter ((/=) '\n') source) ++ "`") $
+    testCase (filter ((/=) '\n') source) $
                case translate "test" source of
-                 { Left err -> assertFailure ("parseError" ++ show err)
-                 ; Right (Program prog) -> expected @=? prog
-                 }
+                 Left err -> assertFailure ("parseError" ++ show err)
+                 Right (Program prog) -> expected @=? prog
 
--- | Shortcut for building FunctionInvocations
+-- | Shortcut for building FunctionCalls
 fc :: String -> [Expr] -> Expr
 fc name args = FunctionCall name args
 
