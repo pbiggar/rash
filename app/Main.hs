@@ -1,20 +1,14 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Main where
 
 import qualified System.Exit as Exit
-import HFlags
 
 import qualified Rash.Runner as Runner
 import qualified Rash.Repl as Repl
-
--- need this for HFlags to find the options
-import Rash.Options ()
-
-
+import qualified Rash.Options as Options
 
 main :: IO ()
 main = do
-  args <- $initHFlags "rash - the Rebourne Again Shell"
+  args <- Options.init
   exitCode <- do
     case args of
       [] -> do Repl.runRepl

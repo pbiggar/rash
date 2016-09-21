@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
 import           Test.Tasty
@@ -6,8 +5,6 @@ import           Test.Tasty.HUnit
 import           Data.Generics.Uniplate.Operations
 import qualified System.IO.Silently as Silently
 import           System.Exit
-
-import HFlags
 
 import qualified Rash.Bash2AST as Bash2AST
 import qualified Rash.Test.TestAST as TestAST
@@ -18,7 +15,6 @@ import           Rash.Options()
 main :: IO ()
 
 main = do
-  _ <- $initHFlags "test"
   pts <- fullParseTests
   cts <- codeTests
   rts <- fullRunTests
@@ -30,22 +26,23 @@ testParses file =
     let failure e = assertFailure ("parseError: " ++ show e)
         checkASTSuccess ast = [] @=? [ s | AST.Debug s <- universeBi ast ]
     in do
-      src <- readFile file
-      let ast = Bash2AST.translate "test" src
       return (testCaseSteps ("Full parse test: " ++ file) $ \step -> do
-                step "check AST"
-                either failure checkASTSuccess ast)
+              step "read code"
+              src <- readFile file
+              step "parse code"
+              let ast = Bash2AST.translate "test" src
+              step "check AST"
+              either failure checkASTSuccess ast)
 
 testRuns :: FilePath -> ExitCode -> String -> IO TestTree
-testRuns filename expectedCode expectedOutput = let
-    checkOutputExpected output = expectedOutput @=? output
-    checkCodeExpected   code =   expectedCode @=? code
-    in do
-        return $ testCaseSteps ("Interpreter test: " ++ filename) $ \step -> do
-            (captured, exitCode) <- Silently.capture $ Runner.runFile filename
-            step "check output"
-            checkOutputExpected captured
-            checkCodeExpected exitCode
+testRuns filename expectedCode expectedOutput =
+  return $ testCaseSteps ("Interpreter test: " ++ filename) $ \step -> do
+    step "run code"
+    (captured, exitCode) <- Silently.capture $ Runner.runFile filename
+    step "check output"
+    expectedOutput @=? captured
+    step "check exit"
+    expectedCode @=? exitCode
 
 testCode :: String -> String -> IO TestTree
 testCode source expectedOutput = let
@@ -59,9 +56,10 @@ testCode source expectedOutput = let
 
 codeTests :: IO TestTree
 codeTests = do
-  t1 <- testCode "echo $((2 + 2))" "4"
+--  t1 <- testCode "echo 4" "4"
+-- t2 <- testCode "echo $((2 + 2))" "4"
 --  t2 <- testCode "die 255"
-  return $ testGroup "code tests" [t1]
+  return $ testGroup "code tests" []
 
 fullRunTests :: IO TestTree
 fullRunTests =
