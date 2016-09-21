@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-
 module Rash.Bash2AST
     ( translate
     , convertList
@@ -190,7 +189,7 @@ convertSpan (W.ParamSubst W.Delete {W.indirect = False
                                   , W.pattern = pattern })
     = fc ("string." ++ name) args
       where
-        name = if direction == W.Front then "replace_front" else "replace_back"
+        name = if direction == W.Front then "replaceFront" else "replaceBack"
         args = [Variable p, convertWord pattern] ++ longestArgs
         longestArgs = if longest then [] else [Str "--nongreedy"]
                       -- TODO: indirect?
@@ -335,6 +334,12 @@ postProcess = transformBi f
       f (FunctionCall "exit" args) =
           fc "sys.exit"
           (map convertExitArg args)
+
+      -- | String match and it's arguments
+      f binop@(Binop a Equals (Str b)) =
+        case reverse b of
+          ('*':rest) -> (fc "string.matches?" [a, (Str $ (reverse rest) ++ ".*")])
+          _ -> binop
 
 
       -- TODO: convert this into some sort of exception

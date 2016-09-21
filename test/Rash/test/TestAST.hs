@@ -77,14 +77,14 @@ unitTests =
                      "x"
                      [FunctionParameter "arg"]
                      (List [(FunctionCall "sys.exit" [Variable "arg"])])))
+
+  , testExpected "[ $a == https* ]"
+                 (fc "string.matches?"
+                   [Variable "a"
+                  , Str "https.*"])
     ]
 
 bugs :: TestTree
 bugs =
   testGroup "Known bugs"
-   (map expectFail [
-    testExpected "[ $a == https* ]"
-                 (fc "string.matches?"
-                   [Variable "a"
-                  , Str "https*"])
-  ])
+  (map expectFail [])
