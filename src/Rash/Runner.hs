@@ -7,6 +7,7 @@ import qualified Text.Groom as G
 import           Control.Monad (when, liftM)
 import           Control.Exception (catch, fromException)
 
+import qualified Language.Bash.Parse as BashParse
 
 import Rash.AST
 import Rash.Runtime
@@ -36,11 +37,12 @@ runProgram program args = do
 
 runSource :: String -> String -> [String] -> IO Exit.ExitCode
 runSource name source args = do
+  when (Options.flags_debug) $ putStrLn $ G.groom $ BashParse.parse name source
+
   Either.either
-    (\err -> (do
-                print err
-                return $ Exit.ExitFailure (-1)))
-    (\prog -> (runProgram prog args))
+    (\err -> (do print err
+                 return $ Exit.ExitFailure (-1)))
+    (\prog -> runProgram prog args)
     (Bash2AST.translate name source)
 
 runFile :: FilePath -> IO Exit.ExitCode

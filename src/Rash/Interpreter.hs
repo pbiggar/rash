@@ -7,7 +7,7 @@ import qualified Control.Monad.Trans.State as State
 import           Control.Monad.IO.Class (liftIO)
 import qualified System.Process as Proc
 import qualified GHC.IO.Handle as Handle
-import qualified Text.Groom as G
+
 import qualified System.IO as IO
 
 import           Rash.AST
@@ -31,7 +31,7 @@ interpret (Program expr) args = do
   let hs = Handles IO.stdin IO.stdout IO.stderr
   let state = IState (Frame st hs) ft
   (val, final) <- State.runStateT (evalExpr expr) state
-  debugIO $ "Final state: " ++ (show final)
+  debugIO "Final state" final
   return val
 
 isTruthy :: Value -> Bool
@@ -59,13 +59,14 @@ toString v = todo "Not a string" v
 
 evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
-  liftIO $ debugIO $ "executing a list with " ++ (show (length es)) ++ " exprs"
+  liftIO $ debugIO ("executing a list with " ++ (show (length es)) ++ " exprs") ()
   evalExpr' e
 
 evalExpr e = do
-  liftIO $ debugIO $ "executing: " ++ (G.groom e)
+  liftIO $ debugIO "executing: " e
   v <- evalExpr' e
-  liftIO $ debugIO $ "returning: " ++ (show v) ++ " <- " ++ (G.groom e)
+  liftIO $ debugIO "returning: " v
+  liftIO $ debugIO "  <- " e
   return v
 
 evalExpr' :: Expr -> WithState Value
