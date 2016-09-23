@@ -6,9 +6,8 @@ extra-deps:
   - language-bash-0.6.1
   - process-1.4.2.0
 
-
 # Local packages, usually specified by relative directory name
-# packages:
-# - '.'
-# - location: '../language-bash'
-#   extra-dep: true
+packages:
+- location: '../language-bash'
+  extra-dep: true
+- '.'
