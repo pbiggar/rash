@@ -218,3 +218,32 @@ TODO
 - what to do for unset variables?
  - do we want to have a maybe type?
 - translate some scripts
+
+
+## Design Decisions
+
+### Builtins and pipes
+Try to represent all builtin syntax using pipes. For example, to read from stdin, do
+
+  `$x | someFunc`
+
+instead of bash's
+
+  `someFunc <(echo $x)`
+
+How do you know whether something should be passed as an argument or via a pipe? Pipes are for data, and arguments are for configuration. For example, `cat` takes data piped into it, but when you specify the filename instead you are giving it configuration.
+
+
+## Bash -> Rash translation:
+
+`$@` -> `sys.argv`
+`$#` -> `sys.argv | length`
+`$1` -> `sys.argv[1]`
+`prog > file` -> `prog | fs.save "file"`
+`prog < file` -> `fs.read file | prog`
+`[[ $x == "https*" ]]` -> `string.matches? "https.*" $x`
+`exit 1` -> `sys.exit 1`
+`type grep` -> `sys.onPath? "grep"`
+`prog1 | prog2` -> `prog1 | suppress | prog2`
+`set -eo pipefail; prog1 | prog2` -> `prog1 -> prog2`
+`$myprog | prog2` -> `exec $myprog | prog2`
