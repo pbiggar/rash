@@ -77,7 +77,12 @@ unitTests =
                      "x"
                      [FunctionParameter "arg"]
                      (List [(FunctionCall "sys.exit" [Variable "arg"])])))
-
+  , testExpected "[ -n $2 ]" (Pipe [Subscript (Variable "sys.argv") (Integer 2),
+                                    FunctionCall "string.nonblank?" []])
+  , testExpected "[[ $a =~ \"a.b\" ]]"
+                 (Pipe [Variable "a", FunctionCall "re.matches" [Str "a.b"]])
+  , testExpected "echo -n $a | grep b"
+                 (Pipe [Variable "a", FunctionCall "grep" [Str "b"]])
   , testExpected "[ $a == https* ]"
                  (fc "string.matches?"
                    [Variable "a"

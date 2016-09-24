@@ -11,9 +11,10 @@ import qualified Language.Bash.Word as W
 import qualified Language.Bash.Cond as C
 import qualified Language.Bash.Pretty as BashPretty
 import qualified Data.Typeable as Typeable
+import qualified Data.Data
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec(parse)
-import           Data.Generics.Uniplate.Data(transformBi)
+import           Data.Generics.Uniplate.Data(rewriteBi)
 import qualified System.IO.Unsafe as UnsafeIO
 
 import Rash.AST
@@ -77,7 +78,7 @@ convertRedir expr (S.Heredoc S.Here _ False doc) = (Stdin (convertWord doc) expr
 convertRedir expr (S.Redir {S.redirDesc=Nothing
                           , S.redirOp=S.Append
                           , S.redirTarget=file}) =
-   addToPipe expr (fc "stdout.appendToFile" [convertWord file])
+   addToPipe expr (fc "stdout.appendTo" [convertWord file])
 convertRedir expr (S.Redir {S.redirDesc=Just(S.IONumber 2)
                           , S.redirOp=S.OutAnd
                           , S.redirTarget=[W.Char '1']}) =
@@ -89,11 +90,11 @@ convertRedir expr (S.Redir {S.redirDesc=Nothing
 convertRedir expr (S.Redir {S.redirDesc=Nothing
                           , S.redirOp=S.Out
                           , S.redirTarget=file}) =
-   addToPipe expr (fc "stdout.writeToFile" [convertWord file])
+   addToPipe expr (fc "stdout.writeTo" [convertWord file])
 convertRedir expr (S.Redir {S.redirDesc=Just(S.IONumber 2)
                           , S.redirOp=S.Out
                           , S.redirTarget=file}) =
-   addToPipe expr (fc "stderr.writeToFile" [convertWord file])
+   addToPipe expr (fc "stderr.writeTo" [convertWord file])
 
 convertRedir _ r = debugDT "cr" r
 
@@ -216,7 +217,7 @@ convertCondExpr (C.Not e) = Unop Not (convertCondExpr e)
 convertCondExpr (C.And a b) = Binop (convertCondExpr a) And (convertCondExpr b)
 convertCondExpr (C.Or a b) = Binop (convertCondExpr a) Or (convertCondExpr b)
 convertCondExpr (C.Unary uop w) =
-    fc (uop2FunctionName uop) [convertWord w]
+    Pipe [convertWord w, fc (uop2FunctionName uop) []]
 convertCondExpr (C.Binary l C.StrEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.ArithEQ r) = Binop (convertWord l) Equals (convertWord r)
 convertCondExpr (C.Binary l C.StrNE r) = Unop Not (Binop (convertWord l) Equals (convertWord r))
@@ -313,9 +314,17 @@ cConcat0 [] = Str ""
 cConcat0 [e] = e
 cConcat0 es = Concat es
 
+
+--- Transformations
+transformFixed :: (Data.Data.Data a, Eq a) => (Expr -> Expr) -> a -> a
+transformFixed f = rewriteBi g
+  where
+    g x = let y = f x in if x == y then Nothing else Just y
+
+
 -- | Perform transformations across the AST (everywhere)
 postProcess :: Program -> Program
-postProcess = transformBi f
+postProcess = transformFixed f
     where
       -- | Convert `while read input` into `for $input sys.read()`
       f (For AnonVar (Assignment v rv) block) =
@@ -338,7 +347,7 @@ postProcess = transformBi f
       -- | String match and it's arguments
       f binop@(Binop a Equals (Str b)) =
         case reverse b of
-          ('*':rest) -> (fc "string.matches?" [a, (Str $ (reverse rest) ++ ".*")])
+          ('*':rest) -> fc "string.matches?" [a, (Str $ (reverse rest) ++ ".*")]
           _ -> binop
 
 
@@ -346,7 +355,45 @@ postProcess = transformBi f
       f (FunctionCall "set" [Str "-e"]) = Nop
       f (FunctionCall "set" [Str "+e"]) = Nop
 
-      f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = (fc "stderr.ignore" [])
+      f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = fc "stderr.ignore" []
+      f (FunctionCall "stdout.writeTo" [Str "/dev/null"]) = fc "stdout.ignore" []
+
+      -- TODO generalize combining pipes
+      f (Pipe (Pipe exprs : rest)) = Pipe (exprs ++ rest)
+
+      -- TODO write a simple awk parser
+      f (FunctionCall "awk" [Str "{print $1}"]) = fc "string.column" [Integer 1]
+      f (FunctionCall "awk" [Str "{print $2}"]) = fc "string.column" [Integer 2]
+      f (FunctionCall "awk" [Str "{print $3}"]) = fc "string.column" [Integer 3]
+      f (FunctionCall "awk" [Str "{print $4}"]) = fc "string.column" [Integer 4]
+      f (FunctionCall "awk" [Str "{print $5}"]) = fc "string.column" [Integer 5]
+      f (FunctionCall "awk" [Str "{print $6}"]) = fc "string.column" [Integer 6]
+      f (FunctionCall "awk" [Str "{print $7}"]) = fc "string.column" [Integer 7]
+      f (FunctionCall "awk" [Str "{print $8}"]) = fc "string.column" [Integer 8]
+      f (FunctionCall "awk" [Str "{print $9}"]) = fc "string.column" [Integer 9]
+
+      f (FunctionCall "awk" [Str "{print $1}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 1]]
+      f (FunctionCall "awk" [Str "{print $2}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 2]]
+      f (FunctionCall "awk" [Str "{print $3}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 3]]
+      f (FunctionCall "awk" [Str "{print $4}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 4]]
+      f (FunctionCall "awk" [Str "{print $5}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 5]]
+      f (FunctionCall "awk" [Str "{print $6}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 6]]
+      f (FunctionCall "awk" [Str "{print $7}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 7]]
+      f (FunctionCall "awk" [Str "{print $8}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 8]]
+      f (FunctionCall "awk" [Str "{print $9}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 9]]
+
+      -- regexes use Pipes
+      f (FunctionCall "re.matches" [val, arg]) = Pipe [val, fc "re.matches" [arg]]
+
+      -- TODO: handle escaping with -e and -E properly
+      f (Pipe (FunctionCall "echo" [Str "-e", str] : rest)) = Pipe (str : rest)
+      f (Pipe (FunctionCall "echo" [Str "-E", str] : rest)) = Pipe (str : rest)
+      f (Pipe (FunctionCall "echo" [Str "-n", str] : rest)) = Pipe (str : rest)
+      -- we drop the implicit \n - I think that's safe
+      f (Pipe ((FunctionCall "echo" [arg]) : rest)) = Pipe $ (arg : rest)
+
+      f (Pipe [a, FunctionCall "stdout.ignore" [], FunctionCall "stderr.intoStdout" []]) =
+        Pipe [a, fc "stderr.replaceStdout" []]
       f x = x
 
       convertExitArg (Str v) = Integer (read v :: Int)
@@ -354,7 +401,7 @@ postProcess = transformBi f
 
 
 postProcessFunctionDefs :: Expr -> Expr
-postProcessFunctionDefs = transformBi f
+postProcessFunctionDefs = transformFixed $ f
     where
       f (FunctionDefinition (FuncDef name [] (List (Assignment (LVar lv) (Variable "1"): rest )))) =
          FunctionDefinition (FuncDef name [FunctionParameter lv] $ List rest)
@@ -366,7 +413,7 @@ postProcessGlobals (Program expr) = Program $ postProcessGlobalExpr expr
 
 postProcessGlobalExpr :: Expr -> Expr
 postProcessGlobalExpr fd@(FunctionDefinition _) = fd
-postProcessGlobalExpr e = transformBi f e
+postProcessGlobalExpr e = transformFixed f e
     where
       -- | Convert $1, $2, etc to sys.argv[1] etc
       f (Variable "1") = Subscript (Variable "sys.argv") (Integer 1)
@@ -386,11 +433,7 @@ postProcessGlobalExpr e = transformBi f e
       f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
         = (Binop s op Null)
 
-      f (FunctionCall "string.nonblank?" [s@(Subscript (Variable "sys.argv") _)])
-        = s
-
       f x = x
-
 
 
 -- || TODO:

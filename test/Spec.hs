@@ -61,7 +61,12 @@ parseTests :: IO TestTree
 parseTests =
     do t1 <- testParses "data/spaceman-diff"
        t2 <- testParses "data/le.sh"
-       return $ testGroup "Parse tests" [t1, t2]
+       t3 <- testParses "data/pdf-check.sh"
+--       t4 <- testParses "data/nvm.sh"
+--       t5 <- testParses "data/dropbox_uploader.sh"
+--       t6 <- testParses "data/roll.sh"
+       t7 <- testParses "data/nginx.sh"
+       return $ testGroup "Parse tests" $ [t1, t2, t3, t7]
 
 codeTests :: IO TestTree
 codeTests = do
@@ -72,6 +77,9 @@ codeTests = do
 
 runTests :: IO TestTree
 runTests =
-  do t1 <- testRuns "data/spaceman-diff" ExitSuccess expected
-     return $ testGroup "Run tests" [t1]
-  where expected = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modeA fileB shaB modeB\n"
+  do t1 <- testRuns "data/spaceman-diff" ExitSuccess expected1
+     t2 <- testRuns "data/nginx.sh" ExitSuccess expected2
+     return $ testGroup "Run tests" [t1, t2]
+  where
+    expected1 = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modeA fileB shaB modeB\n"
+    expected2 = "Unsupported OS detected, this script will now exit."
