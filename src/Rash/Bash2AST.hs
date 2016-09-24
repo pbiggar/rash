@@ -358,9 +358,6 @@ postProcess = transformFixed f
       f (FunctionCall "stderr.writeTo" [Str "/dev/null"]) = fc "stderr.ignore" []
       f (FunctionCall "stdout.writeTo" [Str "/dev/null"]) = fc "stdout.ignore" []
 
-      -- TODO generalize combining pipes
-      f (Pipe (Pipe exprs : rest)) = Pipe (exprs ++ rest)
-
       -- TODO write a simple awk parser
       f (FunctionCall "awk" [Str "{print $1}"]) = fc "string.column" [Integer 1]
       f (FunctionCall "awk" [Str "{print $2}"]) = fc "string.column" [Integer 2]
@@ -392,9 +389,22 @@ postProcess = transformFixed f
       -- we drop the implicit \n - I think that's safe
       f (Pipe ((FunctionCall "echo" [arg]) : rest)) = Pipe $ (arg : rest)
 
-      f (Pipe [a, FunctionCall "stdout.ignore" [], FunctionCall "stderr.intoStdout" []]) =
-        Pipe [a, fc "stderr.replaceStdout" []]
+      -- fold within pipes
+      f (Pipe es) = Pipe $ foldPipe es
       f x = x
+
+      foldPipe exprs = foldr merge [] exprs
+
+      merge (FunctionCall "stdout.ignore" [])
+            ((FunctionCall "stderr.intoStdout" []) : cs)
+            = (fc "stderr.replaceStdout" [] : cs)
+
+      -- pipes within pipes
+      merge (Pipe as)
+            bs
+            = as ++ bs
+
+      merge a bs = (a:bs)
 
       convertExitArg (Str v) = Integer (read v :: Int)
       convertExitArg v = v

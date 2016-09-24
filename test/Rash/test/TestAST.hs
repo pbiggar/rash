@@ -76,13 +76,16 @@ unitTests =
                    (FuncDef
                      "x"
                      [FunctionParameter "arg"]
-                     (List [(FunctionCall "sys.exit" [Variable "arg"])])))
+                     (List [(fc "sys.exit" [Variable "arg"])])))
   , testExpected "[ -n $2 ]" (Pipe [Subscript (Variable "sys.argv") (Integer 2),
-                                    FunctionCall "string.nonblank?" []])
+                                    fc "string.nonblank?" []])
   , testExpected "[[ $a =~ \"a.b\" ]]"
-                 (Pipe [Variable "a", FunctionCall "re.matches" [Str "a.b"]])
+                 (Pipe [Variable "a", fc "re.matches" [Str "a.b"]])
   , testExpected "echo -n $a | grep b"
-                 (Pipe [Variable "a", FunctionCall "grep" [Str "b"]])
+                 (Pipe [Variable "a", fc "grep" [Str "b"]])
+  -- test redirecting and flattening pipes
+  , testExpected "grep a b | grep c >/dev/null 2>&1 | grep d"
+                 (Pipe [fc "grep" [Str "a", Str "b"], fc "grep" [Str "c"], fc "stderr.replaceStdout" [], fc "grep" [Str "d"]])
   , testExpected "[ $a == https* ]"
                  (fc "string.matches?"
                    [Variable "a"
