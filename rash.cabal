@@ -53,7 +53,7 @@ executable rash-exe
 test-suite rash-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Test.hs
   other-modules:       Rash.Test.TestAST
   build-depends:       base
                      , rash

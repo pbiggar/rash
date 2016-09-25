@@ -1,21 +1,35 @@
 module Rash.Options where
 
 import qualified System.IO.Unsafe as Unsafe
-import           System.Environment (getArgs)
-import qualified Data.IORef as IORef
+import           Options.Applicative
 
-init :: IO [String]
-init = do
-  args <- getArgs
-  if (length args > 0 && head args == "--debug") then
-    do (IORef.writeIORef flags_data True)
-       return (tail args)
-  else
-    return args
+data Opts = Opts
+  { debug       :: Bool
+  , checkSyntax :: Bool
+  , files       :: [String] }
 
+flagsDesc :: Parser Opts
+flagsDesc = Opts
+     <$> switch
+         ( long "debug"
+        <> help "Print internal compiler debug output" )
+     <*> switch
+         ( long "check-syntax"
+        <> help "Check syntax and then exit" )
+     <*> some (argument str (metavar "FILE"))
 
-flags_data :: IORef.IORef Bool
-flags_data = Unsafe.unsafePerformIO $ IORef.newIORef False
+optionsDesc :: ParserInfo Opts
+optionsDesc = info (helper <*> flagsDesc)
+                ( fullDesc
+               <> progDesc "Run FILENAME"
+               <> header "rash - the Rebourne Again Shell"
+               )
 
-flags_debug :: Bool
-flags_debug = Unsafe.unsafePerformIO $ IORef.readIORef flags_data
+flagsData :: IO Opts
+flagsData = execParser optionsDesc
+
+flags :: Opts
+flags = Unsafe.unsafePerformIO flagsData
+
+init :: IO Opts
+init = undefined

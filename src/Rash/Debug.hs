@@ -3,7 +3,7 @@ module Rash.Debug where
 import qualified System.IO.Unsafe as Unsafe
 import           Control.Monad (when)
 
-import qualified Rash.Options as Options
+import qualified Rash.Options as Opts
 
 todo :: Show a => String -> a -> r
 todo msg obj = do
@@ -16,4 +16,4 @@ debug msg x = do
 
 debugIO :: Show a => String -> a -> IO ()
 debugIO msg x = do
-  when Options.flags_debug $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show x
+  when (Opts.debug Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show x
