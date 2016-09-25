@@ -9,11 +9,12 @@ import qualified Rash.Bash2AST as Bash2AST
 import qualified Rash.Test.TestAST as TestAST
 import qualified Rash.Runner as Runner
 import qualified Rash.AST as AST
-import           Rash.Options()
+import qualified Rash.Options as Opts
 
 main :: IO ()
 
 main = do
+  Opts.init ["file.rash"]
   pts <- parseTests
   cts <- codeTests
   rts <- runTests

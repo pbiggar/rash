@@ -1,7 +1,10 @@
 module Rash.Options where
 
 import qualified System.IO.Unsafe as Unsafe
+import qualified Data.IORef as IORef
 import           Options.Applicative
+import System.Environment as Env
+
 
 data Opts = Opts
   { debug       :: Bool
@@ -25,11 +28,24 @@ optionsDesc = info (helper <*> flagsDesc)
                <> header "rash - the Rebourne Again Shell"
                )
 
-flagsData :: IO Opts
-flagsData = execParser optionsDesc
+parsedFlags :: IO Opts
+parsedFlags = do
+  args <- IORef.readIORef flagsData
+  Env.withArgs args $
+    execParser optionsDesc
 
+{-# NOINLINE flags #-}
 flags :: Opts
-flags = Unsafe.unsafePerformIO flagsData
+flags = Unsafe.unsafePerformIO $ do
+  parsedFlags
 
-init :: IO Opts
-init = undefined
+{-# NOINLINE flagsData #-}
+flagsData :: IORef.IORef [String]
+flagsData = Unsafe.unsafePerformIO $ do
+  args <- Env.getArgs
+  IORef.newIORef args
+
+init :: [String] -> IO ()
+init args = do
+  IORef.writeIORef flagsData args
+  return ()
