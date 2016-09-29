@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts   #-}
 
 module Rash.AST
     ( Expr(..)
@@ -11,9 +11,9 @@ module Rash.AST
     , FuncDef(..)
     ) where
 
-import           Data.Typeable()
 import           Data.Data
-import           Data.Generics.Uniplate.Data()
+import           Data.Generics.Uniplate.Data ()
+import           Data.Typeable               ()
 
 
 -- | The AST definition

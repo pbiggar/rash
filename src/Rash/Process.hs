@@ -1,21 +1,21 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Rash.Process where
 
-import qualified GHC.IO.Handle as Handle
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad (void)
-import qualified System.Process as Proc
-import qualified Data.Map.Strict as Map
-import qualified Control.Concurrent.Async as Async
-import           Control.Exception (throw)
+import qualified Control.Concurrent.Async  as Async
+import           Control.Exception         (throw)
+import           Control.Monad             (void)
+import           Control.Monad.IO.Class    (liftIO)
 import qualified Control.Monad.Trans.State as State
+import qualified Data.Map.Strict           as Map
+import qualified GHC.IO.Handle             as Handle
+import qualified System.Process            as Proc
 
 
-import Rash.AST
-import Rash.Runtime as Runtime
-import Rash.Debug
+import           Rash.AST
+import           Rash.Debug
+import           Rash.Runtime              as Runtime
 
 evalPipe :: [(String, [Value])] -> Handle.Handle -> EvalExprFn -> WithState Value
 evalPipe commands stdin evalProgram = do

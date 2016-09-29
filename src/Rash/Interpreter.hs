@@ -1,19 +1,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Rash.Interpreter where
 
-import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
+import           Control.Monad.IO.Class    (liftIO)
 import qualified Control.Monad.Trans.State as State
-import           Control.Monad.IO.Class (liftIO)
-import qualified System.Process as Proc
-import qualified GHC.IO.Handle as Handle
+import qualified Data.Map.Strict           as Map
+import           Data.Maybe                (fromMaybe)
+import qualified GHC.IO.Handle             as Handle
+import qualified System.Process            as Proc
 
-import qualified System.IO as IO
+import qualified System.IO                 as IO
 
 import           Rash.AST
-import           Rash.Builtins as Builtins
+import           Rash.Builtins             as Builtins
 import           Rash.Debug
-import qualified Rash.Process as Process
+import qualified Rash.Process              as Process
 import           Rash.Runtime
 
 

@@ -1,9 +1,9 @@
 module Rash.Runtime where
 
-import qualified Data.Map.Strict as Map
-import qualified System.Exit as Exit
 import qualified Control.Monad.Trans.State as State
-import qualified GHC.IO.Handle as Handle
+import qualified Data.Map.Strict           as Map
+import qualified GHC.IO.Handle             as Handle
+import qualified System.Exit               as Exit
 
 import           Rash.AST
 
@@ -30,9 +30,9 @@ data Frame = Frame {symtable::SymTable, handles_::Handles} deriving (Show)
 data IState = IState {frame_::Frame, functable::FuncTable} deriving (Show)
 type WithState a = State.StateT IState IO a
 
-data Handles = Handles {stdin_::Handle.Handle
-                      , stdout_::Handle.Handle
-                      , stderr_::Handle.Handle}
+data Handles = Handles { stdin_::Handle.Handle
+                       , stdout_::Handle.Handle
+                       , stderr_::Handle.Handle }
                       deriving (Show)
 
 

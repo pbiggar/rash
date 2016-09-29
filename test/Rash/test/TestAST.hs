@@ -1,11 +1,11 @@
 module Rash.Test.TestAST (tests) where
 
 import           Test.Tasty
-import           Test.Tasty.HUnit
 import           Test.Tasty.ExpectedFailure (expectFail)
+import           Test.Tasty.HUnit
 
 import           Rash.AST
-import           Rash.Bash2AST (translate)
+import           Rash.Bash2AST              (translate)
 
 tests :: TestTree
 tests = testGroup "AST tests" [unitTests, bugs]

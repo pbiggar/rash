@@ -1,11 +1,11 @@
 module Rash.Options where
 
-import qualified System.IO.Unsafe as Unsafe
-import qualified Data.IORef as IORef
-import qualified System.Environment as Env
+import qualified Data.IORef          as IORef
 import           Options.Applicative
+import qualified System.Environment  as Env
+import qualified System.IO.Unsafe    as Unsafe
 
-import           Data.List (isInfixOf)
+import           Data.List           (isInfixOf)
 
 
 data Opts = Opts

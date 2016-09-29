@@ -1,19 +1,19 @@
 module Rash.Runner (runSource, runFile, evalAndPrint, checkSyntax) where
 
-import qualified Data.Either as Either
-import qualified Data.Maybe as Maybe
-import qualified System.Exit as Exit
-import qualified Text.Groom as G
-import           Control.Monad (when, liftM)
-import           Control.Exception (catch, fromException)
+import           Control.Exception   (catch, fromException)
+import           Control.Monad       (liftM, when)
+import qualified Data.Either         as Either
+import qualified Data.Maybe          as Maybe
+import qualified System.Exit         as Exit
+import qualified Text.Groom          as G
 
 import qualified Language.Bash.Parse as BashParse
 
-import Rash.AST
-import Rash.Runtime
-import qualified Rash.Interpreter as Interpreter
-import qualified Rash.Bash2AST as Bash2AST
-import qualified Rash.Options as Opts
+import           Rash.AST
+import qualified Rash.Bash2AST       as Bash2AST
+import qualified Rash.Interpreter    as Interpreter
+import qualified Rash.Options        as Opts
+import           Rash.Runtime
 
 
 evalAndPrint :: String -> String -> IO ()

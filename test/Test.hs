@@ -1,15 +1,15 @@
 module Main (main) where
 
+import           Data.Generics.Uniplate.Operations
+import qualified Rash.AST                          as AST
+import qualified Rash.Bash2AST                     as Bash2AST
+import qualified Rash.Options                      as Opts
+import qualified Rash.Runner                       as Runner
+import qualified Rash.Test.TestAST                 as TestAST
+import           System.Exit
+import qualified System.IO.Silently                as Silently
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Data.Generics.Uniplate.Operations
-import qualified System.IO.Silently as Silently
-import           System.Exit
-import qualified Rash.Bash2AST as Bash2AST
-import qualified Rash.Test.TestAST as TestAST
-import qualified Rash.Runner as Runner
-import qualified Rash.AST as AST
-import qualified Rash.Options as Opts
 
 main :: IO ()
 

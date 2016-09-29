@@ -1,9 +1,9 @@
 module Rash.Repl (runRepl) where
 
 import           Control.Monad (unless)
-import qualified System.IO as IO
+import qualified System.IO     as IO
 
-import qualified Rash.Runner as Runner
+import qualified Rash.Runner   as Runner
 
 
 

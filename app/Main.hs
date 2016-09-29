@@ -1,11 +1,11 @@
 module Main where
 
-import qualified System.Exit as Exit
-import Data.List (intercalate)
+import           Data.List    (intercalate)
+import qualified System.Exit  as Exit
 
-import qualified Rash.Runner as Runner
-import qualified Rash.Repl as Repl
 import qualified Rash.Options as Opts
+import qualified Rash.Repl    as Repl
+import qualified Rash.Runner  as Runner
 
 main :: IO ()
 main = do

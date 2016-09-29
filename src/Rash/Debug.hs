@@ -1,9 +1,9 @@
 module Rash.Debug where
 
+import           Control.Monad    (when)
 import qualified System.IO.Unsafe as Unsafe
-import           Control.Monad (when)
 
-import qualified Rash.Options as Opts
+import qualified Rash.Options     as Opts
 
 todo :: Show a => String -> a -> r
 todo msg obj = do

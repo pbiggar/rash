@@ -4,20 +4,20 @@ module Rash.Bash2AST
     , convertList
     ) where
 
-import qualified Language.Bash.Parse as BashParse
-import qualified Language.Bash.Parse.Word
-import qualified Language.Bash.Syntax as S
-import qualified Language.Bash.Word as W
-import qualified Language.Bash.Cond as C
-import qualified Language.Bash.Pretty as BashPretty
-import qualified Data.Typeable as Typeable
 import qualified Data.Data
-import           Text.Parsec.Error            (ParseError)
-import           Text.Parsec(parse)
-import           Data.Generics.Uniplate.Data(rewriteBi)
-import qualified System.IO.Unsafe as UnsafeIO
+import           Data.Generics.Uniplate.Data (rewriteBi)
+import qualified Data.Typeable               as Typeable
+import qualified Language.Bash.Cond          as C
+import qualified Language.Bash.Parse         as BashParse
+import qualified Language.Bash.Parse.Word
+import qualified Language.Bash.Pretty        as BashPretty
+import qualified Language.Bash.Syntax        as S
+import qualified Language.Bash.Word          as W
+import qualified System.IO.Unsafe            as UnsafeIO
+import           Text.Parsec                 (parse)
+import           Text.Parsec.Error           (ParseError)
 
-import Rash.AST
+import           Rash.AST
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String

@@ -1,12 +1,12 @@
 module Rash.Builtins where
 
-import qualified Data.Map.Strict as Map
-import qualified System.Exit
 import           Control.Monad.IO.Class (liftIO)
+import qualified Data.Map.Strict        as Map
+import qualified System.Exit
 
-import qualified Rash.Util as Util
-import           Rash.Runtime
 import           Rash.Debug
+import           Rash.Runtime
+import qualified Rash.Util              as Util
 
 
 
