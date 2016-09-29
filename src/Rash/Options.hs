@@ -2,19 +2,31 @@ module Rash.Options where
 
 import qualified System.IO.Unsafe as Unsafe
 import qualified Data.IORef as IORef
+import qualified System.Environment as Env
 import           Options.Applicative
-import System.Environment as Env
+
+import           Data.List (isInfixOf)
 
 
 data Opts = Opts
-  { debug       :: Bool
+  { debug       :: String
   , checkSyntax :: Bool
-  , files       :: [String] }
+  , files       :: [String] } deriving (Show)
+
+debugAST :: Opts -> Bool
+debugAST = isInfixOf "ast" . debug
+debugAll :: Opts -> Bool
+debugAll = isInfixOf "all" . debug
+debugPT :: Opts -> Bool
+debugPT = isInfixOf "pt" . debug
+debugExe :: Opts -> Bool
+debugExe = isInfixOf "exe" . debug
 
 flagsDesc :: Parser Opts
 flagsDesc = Opts
-     <$> switch
+     <$> strOption
          ( long "debug"
+        <> value "none"
         <> help "Print internal compiler debug output" )
      <*> switch
          ( long "check-syntax"

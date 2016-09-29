@@ -36,7 +36,7 @@ checkSyntax name file = do
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
-  when (Opts.debug Opts.flags) $ do
+  when (Opts.debugAST Opts.flags) $ do
     putStrLn "AST:"
     putStrLn $ (G.groom program)
 
@@ -49,8 +49,8 @@ runProgram program args = do
 
 runSource :: String -> String -> [String] -> IO Exit.ExitCode
 runSource name source args = do
-  when (Opts.debug Opts.flags) $ do
-    putStrLn "Syntax tree:"
+  when (Opts.debugPT Opts.flags) $ do
+    putStrLn " tree:"
     putStrLn $ G.groom $ BashParse.parse name source
 
   Either.either
