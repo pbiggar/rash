@@ -10,7 +10,6 @@ import qualified Rash.Runner  as Runner
 main :: IO ()
 main = do
   exitCode <- do
-    print Opts.flags
     case Opts.files Opts.flags of
       [] -> do Repl.runRepl
                return $ Exit.ExitSuccess
