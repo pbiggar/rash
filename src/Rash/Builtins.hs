@@ -25,23 +25,24 @@ builtins = m3
 
 
 sysExit :: BuiltinFunction
-sysExit stdin [] = sysExit stdin [VInt 0]
-sysExit _ [code] = do
+sysExit [] = sysExit [VInt 0]
+sysExit [code] = do
   _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ RT.v2int code
   return VNull
-sysExit _ a = todo "todo types" a
+sysExit a = todo "todo types" a
 
 length_ :: BuiltinFunction
-length_ _ a@[] = todo "empty length" a
-length_ _ [VString s] = do
+length_ a@[] = todo "empty length" a
+length_ [VString s] = do
   return $ VInt $ length s
-length_ _ [VArray s] = do
+length_ [VArray s] = do
   return $ VInt $ length s
-length_ _ a = todo "length should support more types" a
-
+length_ a = todo "length should support more types" a
 
 fileExists :: BuiltinFunction
-fileExists stdin _ = liftIO $ do
-  name <- IO.hGetLine stdin
-  res <- Dir.doesFileExist name
-  return $ VBool res
+fileExists _ = do
+  stdin <- RT.getStdin
+  liftIO $ do
+    name <- IO.hGetLine stdin
+    res <- Dir.doesFileExist name
+    return $ VBool res

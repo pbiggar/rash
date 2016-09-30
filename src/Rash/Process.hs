@@ -15,7 +15,7 @@ import qualified System.Process            as Proc
 
 import           Rash.AST
 import           Rash.Debug
-import qualified Rash.Runtime              as Runtime
+import qualified Rash.Runtime              as RT
 import           Rash.RuntimeTypes
 
 
@@ -36,8 +36,8 @@ evalPipe commands stdin evalProgram = do
   -- TODO: we need to handle stderr too.
   -- TODO support exit codes
 
-  stdout <- Runtime.getStdout
-  stderr <- Runtime.getStderr
+  stdout <- RT.getStdout
+  stderr <- RT.getStderr
 
   do
     pipes :: [(Handle.Handle, Handle.Handle)] <- liftIO $ mapM (const Proc.createPipe) commands
@@ -62,7 +62,7 @@ evalPipe commands stdin evalProgram = do
   where
     buildSegment :: (Handles, (String, [Value])) -> WithState (Process)
     buildSegment (handles, (cmd, args)) = do
-      ft <- Runtime.getFuncTable
+      ft <- RT.getFuncTable
       let func = Map.lookup cmd ft
       procHandle <- case func of
         Just f -> createFuncThread f args handles evalProgram
@@ -98,7 +98,7 @@ createBackgroundProc cmd args (Handles stdin stdout stderr) = do
 
 createFuncThread :: Function -> [Value] -> Handles -> EvalExprFn -> WithState Process
 createFuncThread func args handles evalExpr = do
-  state <- Runtime.getState
+  state <- RT.getState
 
   asyncid <- do liftIO $ Async.async $ do
                   _ <- runFunction func args handles state evalExpr
@@ -120,4 +120,4 @@ runFunction (UserDefined (FuncDef _ params body))
 
 runFunction (Builtin fn) args handles state _ = do
   let newState = state { frame_ = Frame Map.empty handles }
-  State.evalStateT (fn (stdin_ handles) args) $ newState
+  State.evalStateT (fn args) $ newState
