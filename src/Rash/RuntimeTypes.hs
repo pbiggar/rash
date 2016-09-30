@@ -19,7 +19,7 @@ data Value = VInt Int
              deriving (Show, Eq)
 
 -- TODO: take a stdin, output a stdout and stderr, return exit code or exception
-type BuiltinFunction = ([Value] -> WithState Value)
+type BuiltinFunction = (Handle.Handle -> [Value] -> WithState Value)
 
 data Function = UserDefined FuncDef
               | Builtin BuiltinFunction

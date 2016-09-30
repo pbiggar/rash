@@ -120,4 +120,4 @@ runFunction (UserDefined (FuncDef _ params body))
 
 runFunction (Builtin fn) args handles state _ = do
   let newState = state { frame_ = Frame Map.empty handles }
-  State.evalStateT (fn args) $ newState
+  State.evalStateT (fn (stdin_ handles) args) $ newState

@@ -29,17 +29,18 @@ library
                      , Rash.Runtime
                      , Rash.RuntimeTypes
                      , Rash.Util
-  build-depends:       base
-                     , text
-                     , parsec
-                     , language-bash
-                     , groom
-                     , uniplate
-                     , transformers
+  build-depends:       async
+                     , base
                      , containers
-                     , process >= 1.4.2.0
-                     , async
+                     , directory
+                     , groom
+                     , language-bash
                      , optparse-applicative
+                     , parsec
+                     , process >= 1.4.2.0
+                     , text
+                     , transformers
+                     , uniplate
   default-language:    Haskell2010
 
 executable rash-exe
