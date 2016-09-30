@@ -5,7 +5,9 @@ import qualified Data.Map.Strict        as Map
 import qualified System.Exit
 
 import           Rash.Debug
-import           Rash.Runtime
+import           Rash.RuntimeTypes
+import qualified Rash.Runtime as Runtime
+
 import qualified Rash.Util              as Util
 
 
@@ -21,7 +23,7 @@ builtins = m2
 sysExit :: BuiltinFunction
 sysExit [] = sysExit $ [VInt 0]
 sysExit [code] = do
-  _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ v2int code
+  _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ Runtime.v2int code
   return VNull
 sysExit a = todo "todo types" a
 

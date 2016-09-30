@@ -13,7 +13,8 @@ import           Rash.AST
 import           Rash.Builtins             as Builtins
 import           Rash.Debug
 import qualified Rash.Process              as Process
-import           Rash.Runtime
+import qualified Rash.Runtime              as RT
+import           Rash.RuntimeTypes
 
 
 findWithDefault :: [a] -> Int -> a -> a
@@ -46,10 +47,11 @@ isTruthy (VArray _) = True
 isTruthy (VHash _) = True
 isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
 
-eval2Str :: Expr -> WithState Value
+eval2Str :: Expr -> WithState String
 eval2Str e = do
     expr <- evalExpr e
-    return $ toString expr
+    let (VString str) = toString expr
+    return str
 
 
 toString :: Value -> Value
@@ -76,7 +78,7 @@ evalExpr' (List es) = do
 evalExpr' Nop = return VNull
 
 evalExpr' (FunctionDefinition fd@(FuncDef name _ _)) = do
-  updateFuncTable $ Map.insert name (UserDefined fd)
+  RT.updateFuncTable $ Map.insert name (UserDefined fd)
   return VNull
 
 evalExpr' (If cond then' else') = do
@@ -101,12 +103,12 @@ evalExpr' (Unop Not e) = do
   return $ VBool $ not (isTruthy res)
 
 evalExpr' (Variable name) = do
-  st <- getSymTable
+  st <- RT.getSymTable
   return $ fromMaybe VNull $ Map.lookup name st
 
 evalExpr' ss@(Subscript (Variable name) e) = do
   index <- evalExpr e
-  st <- getSymTable
+  st <- RT.getSymTable
   let var = Map.lookup name st
   return $ case (var, index) of
     (Just (VArray a), VInt i) -> findWithDefault a i VNull
@@ -115,23 +117,40 @@ evalExpr' ss@(Subscript (Variable name) e) = do
 
 evalExpr' (Assignment (LVar name) e) = do
   result <- evalExpr e
-  updateSymTable $ Map.insert name result
+  RT.updateSymTable $ Map.insert name result
   return result
 
-evalExpr' f@(FunctionCall _ _) = evalExpr' (Pipe [f])
 
-evalExpr' (Pipe exprs) = do
-  stdin <- getStdin
+------------------------------------------------
+-- Function calls and pipes
+------------------------------------------------
+
+evalExpr' f@(FunctionCall _ _) =
+  evalExpr' (Pipe [f])
+
+evalExpr' (Pipe exprs@(FunctionCall _ _:_)) = do
+  stdin <- RT.getStdin
   evalPipe exprs stdin
 
-evalExpr' (Stdin input expr) = do
-  (VString inputStr) <- eval2Str input
+evalExpr' (Pipe (expr : exprs)) =
+  evalExpr $ Stdin expr (Pipe exprs)
+
+evalExpr' (Pipe exprs) = do
+  stdin <- RT.getStdin
+  evalPipe exprs stdin
+
+evalExpr' (Stdin input (Pipe exprs)) = do
+  inputStr <- eval2Str input
   (r,w) <- liftIO $ Proc.createPipe
   liftIO $ IO.hPutStr w inputStr
 
-  result <- evalPipe [expr] r
+  result <- evalPipe exprs r
   liftIO $ IO.hClose r
   return result
+
+evalExpr' (Stdin input expr) = do
+  evalExpr (Stdin input (Pipe [expr]))
+
 
 
 

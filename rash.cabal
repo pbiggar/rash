@@ -27,6 +27,7 @@ library
                      , Rash.Repl
                      , Rash.Runner
                      , Rash.Runtime
+                     , Rash.RuntimeTypes
                      , Rash.Util
   build-depends:       base
                      , text

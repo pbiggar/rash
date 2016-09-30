@@ -15,7 +15,16 @@ import qualified System.Process            as Proc
 
 import           Rash.AST
 import           Rash.Debug
-import           Rash.Runtime              as Runtime
+import qualified Rash.Runtime              as Runtime
+import           Rash.RuntimeTypes
+
+
+handleForString :: String -> WithState Handle.Handle
+handleForString s = liftIO $ do
+  (r, w) <- Proc.createPipe
+  _ <- Handle.hPutStr r s
+  return w
+
 
 evalPipe :: [(String, [Value])] -> Handle.Handle -> EvalExprFn -> WithState Value
 evalPipe commands stdin evalProgram = do
@@ -27,8 +36,8 @@ evalPipe commands stdin evalProgram = do
   -- TODO: we need to handle stderr too.
   -- TODO support exit codes
 
-  stdout <- getStdout
-  stderr <- getStderr
+  stdout <- Runtime.getStdout
+  stderr <- Runtime.getStderr
 
   do
     pipes :: [(Handle.Handle, Handle.Handle)] <- liftIO $ mapM (const Proc.createPipe) commands
@@ -53,7 +62,7 @@ evalPipe commands stdin evalProgram = do
   where
     buildSegment :: (Handles, (String, [Value])) -> WithState (Process)
     buildSegment (handles, (cmd, args)) = do
-      ft <- getFuncTable
+      ft <- Runtime.getFuncTable
       let func = Map.lookup cmd ft
       procHandle <- case func of
         Just f -> createFuncThread f args handles evalProgram
@@ -89,7 +98,7 @@ createBackgroundProc cmd args (Handles stdin stdout stderr) = do
 
 createFuncThread :: Function -> [Value] -> Handles -> EvalExprFn -> WithState Process
 createFuncThread func args handles evalExpr = do
-  state <- getState
+  state <- Runtime.getState
 
   asyncid <- do liftIO $ Async.async $ do
                   _ <- runFunction func args handles state evalExpr

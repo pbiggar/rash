@@ -13,7 +13,7 @@ import           Rash.AST
 import qualified Rash.Bash2AST       as Bash2AST
 import qualified Rash.Interpreter    as Interpreter
 import qualified Rash.Options        as Opts
-import           Rash.Runtime
+import           Rash.RuntimeTypes
 
 
 evalAndPrint :: String -> String -> IO ()
