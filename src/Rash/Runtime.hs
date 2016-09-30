@@ -32,8 +32,7 @@ type WithState a = State.StateT IState IO a
 
 data Handles = Handles { stdin_::Handle.Handle
                        , stdout_::Handle.Handle
-                       , stderr_::Handle.Handle }
-                      deriving (Show)
+                       , stderr_::Handle.Handle } deriving (Show)
 
 
 instance (Show Function) where

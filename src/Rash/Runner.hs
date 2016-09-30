@@ -1,6 +1,6 @@
 module Rash.Runner (runSource, runFile, evalAndPrint, checkSyntax) where
 
-import           Control.Exception   (catch, fromException)
+import           Control.Exception   (catch, fromException, SomeException)
 import           Control.Monad       (liftM, when)
 import qualified Data.Either         as Either
 import qualified Data.Maybe          as Maybe
@@ -43,8 +43,11 @@ runProgram program args = do
   catch
     (liftM convertToExitCode (Interpreter.interpret program args))
     -- sys.exit maybe throw an ExitCode in an exception
-    (\e -> return $
-             Maybe.fromMaybe (Exit.ExitFailure (-1)) (fromException e))
+    (\e -> do
+        print $ "An exception occurred: " ++ (show (e :: SomeException))
+        let code = Maybe.fromMaybe (Exit.ExitFailure (-1)) (fromException (e :: SomeException))
+        return code)
+
 
 
 runSource :: String -> String -> [String] -> IO Exit.ExitCode

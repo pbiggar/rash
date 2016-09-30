@@ -7,13 +7,14 @@ import qualified Rash.Options     as Opts
 
 todo :: Show a => String -> a -> r
 todo msg obj = do
-  error $ "\nTODO: " ++ msg ++ ": " ++ show obj
+  error $ "TODO (" ++ msg ++ "): " ++ show obj
+
 
 {-# NOINLINE debug #-}
 debug :: Show a => String -> a -> ()
-debug msg x = do
-  Unsafe.unsafePerformIO $ debugIO msg x
+debug msg obj = do
+  Unsafe.unsafePerformIO $ debugIO msg obj
 
 debugIO :: Show a => String -> a -> IO ()
-debugIO msg x = do
-  when (Opts.debugAll Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show x
+debugIO msg obj = do
+  when (Opts.debugAll Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show obj
