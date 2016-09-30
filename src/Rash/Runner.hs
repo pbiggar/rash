@@ -44,7 +44,8 @@ runProgram program args = do
     (liftM convertToExitCode (Interpreter.interpret program args))
     -- sys.exit maybe throw an ExitCode in an exception
     (\e -> do
-        print $ "An exception occurred: " ++ (show (e :: SomeException))
+        print $ "An exception occurred: "
+        print e
         let code = Maybe.fromMaybe (Exit.ExitFailure (-1)) (fromException (e :: SomeException))
         return code)
 

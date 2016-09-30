@@ -7,7 +7,6 @@ import qualified Data.Map.Strict           as Map
 import           Data.Maybe                (fromMaybe)
 import qualified GHC.IO.Handle             as Handle
 import qualified System.Process            as Proc
-
 import qualified System.IO                 as IO
 
 import           Rash.AST
@@ -88,6 +87,18 @@ evalExpr' (Binop l Equals r) = do
   lval <- evalExpr l
   rval <- evalExpr r
   return $ VBool (lval == rval)
+
+evalExpr' (Binop l And r) = do
+  lval <- evalExpr l
+  res <- if (isTruthy lval) then
+    do rval <- evalExpr r
+       return $ isTruthy rval
+    else return False
+  return $ VBool res
+
+evalExpr' (Unop Not e) = do
+  res <- evalExpr e
+  return $ VBool $ not (isTruthy res)
 
 evalExpr' (Variable name) = do
   st <- getSymTable

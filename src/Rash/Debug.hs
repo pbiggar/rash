@@ -2,12 +2,13 @@ module Rash.Debug where
 
 import           Control.Monad    (when)
 import qualified System.IO.Unsafe as Unsafe
+import qualified Text.Groom          as G
 
 import qualified Rash.Options     as Opts
 
 todo :: Show a => String -> a -> r
 todo msg obj = do
-  error $ "TODO (" ++ msg ++ "): " ++ show obj
+  error $ "TODO (" ++ msg ++ "):\n " ++ (G.groom obj)
 
 
 {-# NOINLINE debug #-}
