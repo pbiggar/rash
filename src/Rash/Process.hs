@@ -4,11 +4,14 @@
 module Rash.Process where
 
 import qualified Control.Concurrent.Async  as Async
-import           Control.Exception         (throw)
+import           Control.Exception         (throw, try)
 import           Control.Monad.IO.Class    (liftIO)
 import qualified Control.Monad.Trans.State as State
 import qualified Data.Map.Strict           as Map
+import qualified GHC.IO.Exception          as IOE
+
 import qualified GHC.IO.Handle             as Handle
+
 import qualified System.Process            as Proc
 
 
@@ -72,21 +75,35 @@ evalPipe commands stdin evalProgram = do
       return procHandle
 
 
-data Process = FuncProc (Async.Async RetVal) | ProcProc Proc.ProcessHandle
+data Process = FuncProc (Async.Async RetVal)
+             | ProcProc Proc.ProcessHandle
+             | DeferredException IOE.IOException
 
 waitForProcess :: Process -> IO RetVal
 waitForProcess (FuncProc asyncid) = do
   e <- Async.waitCatch asyncid
   either throw return e
 waitForProcess (ProcProc handle) = do
-  ec <- Proc.waitForProcess handle
-  return $ VResult ec
+  rv <- Proc.waitForProcess handle
+  return $ VResult rv
+
+waitForProcess (DeferredException
+                e@(IOE.IOError { IOE.ioe_type = IOE.NoSuchThing })) = do
+  -- TODO: this should be put in stderr for that process
+  putStrLn $ "Tried to run executable " ++ (IOE.ioe_location e) ++ ", but it wasn't found. Maybe a PATH problem?"
+  return $ vfail (-1)
+
+waitForProcess (DeferredException e) = do
+  putStrLn "Exception thrown in process:"
+  print e
+  return $ vfail (-1)
+
+
 
 value2ProcString :: Value -> String
 value2ProcString (VString s) = s
 value2ProcString (VInt i) = show i
 value2ProcString x = todo "valueToProcString" x
-
 
 
 createBackgroundProc :: String -> [Value] -> Handles -> IO Process
@@ -96,8 +113,11 @@ createBackgroundProc cmd args (Handles stdin stdout stderr) = do
     , Proc.std_out = Proc.UseHandle stdout
     , Proc.std_err = Proc.UseHandle stderr
     , Proc.close_fds = True }
-  (_, _, _, proc) <- liftIO $ Proc.createProcess_ cmd p
-  return $ ProcProc proc
+  result <- try $ liftIO $ Proc.createProcess_ cmd p
+  case result of
+    Right (_, _, _, proc) -> return $ ProcProc proc
+    Left e -> return $ DeferredException e
+
 
 
 createFuncThread :: Function -> [Value] -> Handles -> EvalExprFn -> WithState Process

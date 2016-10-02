@@ -11,7 +11,8 @@ import           Data.List           (isInfixOf)
 data Opts = Opts
   { debug       :: String
   , checkSyntax :: Bool
-  , files       :: [String] } deriving (Show)
+  , files       :: [String]
+  } deriving (Show)
 
 debugAST :: Opts -> Bool
 debugAST = isInfixOf "ast" . debug

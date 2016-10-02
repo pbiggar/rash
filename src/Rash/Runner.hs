@@ -42,13 +42,18 @@ runProgram program args = do
 
   catch
     (liftM convertToExitCode (Interpreter.interpret program args))
-    -- sys.exit maybe throw an ExitCode in an exception
+    -- catch an ExitCode from sys.exit
     (\e -> do
-        let code = Maybe.fromMaybe (Exit.ExitFailure (-1)) (fromException (e :: SomeException))
-        _ <- case code of
-               Exit.ExitFailure i -> do print $ "An error occured: (" ++ show i ++ ") "
-                                        print e
-               _ -> return ()
+        let code = Maybe.fromMaybe
+                     (Exit.ExitFailure (-1))
+                     (fromException (e :: SomeException))
+        case code of
+          Exit.ExitFailure i -> do putStrLn $
+                                     "An error occured: ("
+                                     ++ show i
+                                     ++ "): "
+                                   print e
+          Exit.ExitSuccess -> return ()
 
         return code)
 
