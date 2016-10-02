@@ -17,10 +17,11 @@ import           Rash.AST
 import           Rash.Debug
 import qualified Rash.Runtime              as RT
 import           Rash.RuntimeTypes
+import           Rash.Util
 
 
-handleForString :: String -> WithState Handle.Handle
-handleForString s = liftIO $ do
+handleForString :: String -> IO Handle.Handle
+handleForString s = do
   (r, w) <- Proc.createPipe
   _ <- Handle.hPutStr r s
   return w
@@ -105,7 +106,7 @@ createFuncThread func args handles evalExpr = do
                   return ()
   return $ FuncProc asyncid
 
-runFunction :: Function -> [Value] -> Handles -> IState -> EvalExprFn -> IO Value
+runFunction :: Function -> [Value] -> Handles -> IState -> EvalExprFn -> IO RetVal
 runFunction (UserDefined (FuncDef _ params body))
             args handles state evalExpr = do
   -- new stack frame, with args TODO: copy the "globals"
@@ -116,7 +117,8 @@ runFunction (UserDefined (FuncDef _ params body))
                    (zip params args)
   let newState = state { frame_ = Frame st handles }
 
-  State.evalStateT (evalExpr body) newState
+  retval <- State.evalStateT (evalExpr body) newState
+  return $ v2rv retval
 
 runFunction (Builtin fn) args handles state _ = do
   let newState = state { frame_ = Frame Map.empty handles }

@@ -6,8 +6,8 @@ import qualified Control.Monad.Trans.State as State
 import qualified Data.Map.Strict           as Map
 import           Data.Maybe                (fromMaybe)
 import qualified GHC.IO.Handle             as Handle
-import qualified System.Process            as Proc
 import qualified System.IO                 as IO
+import qualified System.Process            as Proc
 
 import           Rash.AST
 import           Rash.Builtins             as Builtins
@@ -15,13 +15,8 @@ import           Rash.Debug
 import qualified Rash.Process              as Process
 import qualified Rash.Runtime              as RT
 import           Rash.RuntimeTypes
+import qualified Rash.Util                 as Util
 
-
-findWithDefault :: [a] -> Int -> a -> a
-findWithDefault list index def =
-  if index >= length list
-    then def
-    else list !! index
 
 
 interpret :: Program -> [String] -> IO Value
@@ -34,29 +29,6 @@ interpret (Program expr) args = do
   debugIO "Final state" final
   return val
 
-isTruthy :: Value -> Bool
-isTruthy (VString _) = True
-isTruthy (VInt 0) = False
-isTruthy (VInt _) = True
-isTruthy (VBool b) = b
-isTruthy (VExitCode 0) = True
-isTruthy (VExitCode _) = False
-isTruthy VNull = False
-isTruthy (VTodo _ _) = False
-isTruthy (VArray _) = True
-isTruthy (VHash _) = True
-isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
-
-eval2Str :: Expr -> WithState String
-eval2Str e = do
-    expr <- evalExpr e
-    let (VString str) = toString expr
-    return str
-
-
-toString :: Value -> Value
-toString s@(VString _) = s
-toString v = todo "Not a string" v
 
 evalExpr :: Expr -> WithState Value
 evalExpr e@(List es) = do
@@ -83,7 +55,7 @@ evalExpr' (FunctionDefinition fd@(FuncDef name _ _)) = do
 
 evalExpr' (If cond then' else') = do
   condVal <- evalExpr cond
-  if isTruthy condVal then evalExpr then' else evalExpr else'
+  if Util.isTruthy condVal then evalExpr then' else evalExpr else'
 
 evalExpr' (Binop l Equals r) = do
   lval <- evalExpr l
@@ -92,15 +64,15 @@ evalExpr' (Binop l Equals r) = do
 
 evalExpr' (Binop l And r) = do
   lval <- evalExpr l
-  res <- if (isTruthy lval) then
+  res <- if (Util.isTruthy lval) then
     do rval <- evalExpr r
-       return $ isTruthy rval
+       return $ Util.isTruthy rval
     else return False
   return $ VBool res
 
 evalExpr' (Unop Not e) = do
   res <- evalExpr e
-  return $ VBool $ not (isTruthy res)
+  return $ VBool $ not (Util.isTruthy res)
 
 evalExpr' (Variable name) = do
   st <- RT.getSymTable
@@ -111,7 +83,7 @@ evalExpr' ss@(Subscript (Variable name) e) = do
   st <- RT.getSymTable
   let var = Map.lookup name st
   return $ case (var, index) of
-    (Just (VArray a), VInt i) -> findWithDefault a i VNull
+    (Just (VArray a), VInt i) -> Util.findWithDefault a i VNull
     (Just (VHash h), VString s) -> Map.findWithDefault VNull s h
     _ -> todo "Can't do a subscript unless on array/int or hash/string" (ss, var, index)
 
@@ -162,6 +134,11 @@ evalExpr' (Str i) = return $ VString i
 evalExpr' e = do
   todo "an unsupported expression was found" e
 
+eval2Str :: Expr -> WithState String
+eval2Str e = do
+    expr <- evalExpr e
+    let (VString str) = Util.toString expr
+    return str
 
 evalPipe :: [Expr] -> Handle.Handle -> WithState Value
 evalPipe exprs stdin = do

@@ -28,15 +28,17 @@ sysExit :: BuiltinFunction
 sysExit [] = sysExit [VInt 0]
 sysExit [code] = do
   _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ RT.v2int code
-  return VNull
+  return vsuccess
 sysExit a = todo "todo types" a
 
 length_ :: BuiltinFunction
 length_ a@[] = todo "empty length" a
 length_ [VString s] = do
-  return $ VInt $ length s
+  liftIO $ print $ length s
+  return vsuccess
 length_ [VArray s] = do
-  return $ VInt $ length s
+  liftIO $ print $ length s
+  return vsuccess
 length_ a = todo "length should support more types" a
 
 fileExists :: BuiltinFunction
@@ -45,4 +47,4 @@ fileExists _ = do
   liftIO $ do
     name <- IO.hGetLine stdin
     res <- Dir.doesFileExist name
-    return $ VBool res
+    return $ Util.b2rv res

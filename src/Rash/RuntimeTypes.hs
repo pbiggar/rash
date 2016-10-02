@@ -10,16 +10,25 @@ import Rash.AST
 data Value = VInt Int
            | VString String
            | VBool Bool
-           | VExitCode Int
+           | VExitCode Exit.ExitCode
            | VNull
            | VTodo String String
            | VHash (Map.Map String Value)
            | VArray [Value]
-           | VPacket Exit.ExitCode -- TODO stdout and stderr as streams
+           | VPacket RetVal
              deriving (Show, Eq)
 
+
+data RetVal = VResult Exit.ExitCode deriving (Show, Eq)
+vsuccess :: RetVal
+vsuccess = VResult Exit.ExitSuccess
+
+vfail :: Int -> RetVal
+vfail i = VResult (Exit.ExitFailure i)
+
+
 -- TODO: take a stdin, output a stdout and stderr, return exit code or exception
-type BuiltinFunction = ([Value] -> WithState Value)
+type BuiltinFunction = ([Value] -> WithState RetVal)
 
 data Function = UserDefined FuncDef
               | Builtin BuiltinFunction
