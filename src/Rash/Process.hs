@@ -5,7 +5,6 @@ module Rash.Process where
 
 import qualified Control.Concurrent.Async  as Async
 import           Control.Exception         (throw)
-import           Control.Monad             (void)
 import           Control.Monad.IO.Class    (liftIO)
 import qualified Control.Monad.Trans.State as State
 import qualified Data.Map.Strict           as Map
@@ -56,8 +55,10 @@ evalPipe commands stdin evalProgram = do
 
     procs <- mapM buildSegment entirity
 
-    _ <- liftIO $ mapM waitForProcess procs
-    return VNull
+    -- TODO: if an exit code is fail, stop further processes
+    codes <- liftIO $ mapM waitForProcess procs
+    let rv = last codes
+    return $ VPacket rv
 
 
   where
@@ -71,13 +72,15 @@ evalPipe commands stdin evalProgram = do
       return procHandle
 
 
-data Process = FuncProc (Async.Async ()) | ProcProc Proc.ProcessHandle
+data Process = FuncProc (Async.Async RetVal) | ProcProc Proc.ProcessHandle
 
-waitForProcess :: Process -> IO ()
+waitForProcess :: Process -> IO RetVal
 waitForProcess (FuncProc asyncid) = do
   e <- Async.waitCatch asyncid
   either throw return e
-waitForProcess (ProcProc handle) = void $ Proc.waitForProcess handle
+waitForProcess (ProcProc handle) = do
+  ec <- Proc.waitForProcess handle
+  return $ VResult ec
 
 value2ProcString :: Value -> String
 value2ProcString (VString s) = s
@@ -102,8 +105,7 @@ createFuncThread func args handles evalExpr = do
   state <- RT.getState
 
   asyncid <- do liftIO $ Async.async $ do
-                  _ <- runFunction func args handles state evalExpr
-                  return ()
+                  runFunction func args handles state evalExpr
   return $ FuncProc asyncid
 
 runFunction :: Function -> [Value] -> Handles -> IState -> EvalExprFn -> IO RetVal
@@ -117,8 +119,8 @@ runFunction (UserDefined (FuncDef _ params body))
                    (zip params args)
   let newState = state { frame_ = Frame st handles }
 
-  retval <- State.evalStateT (evalExpr body) newState
-  return $ v2rv retval
+  val <- State.evalStateT (evalExpr body) newState
+  return $ b2rv . isTruthy $ val
 
 runFunction (Builtin fn) args handles state _ = do
   let newState = state { frame_ = Frame Map.empty handles }

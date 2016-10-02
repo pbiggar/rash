@@ -10,7 +10,6 @@ import Rash.AST
 data Value = VInt Int
            | VString String
            | VBool Bool
-           | VExitCode Exit.ExitCode
            | VNull
            | VTodo String String
            | VHash (Map.Map String Value)
@@ -20,6 +19,7 @@ data Value = VInt Int
 
 
 data RetVal = VResult Exit.ExitCode deriving (Show, Eq)
+
 vsuccess :: RetVal
 vsuccess = VResult Exit.ExitSuccess
 

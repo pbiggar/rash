@@ -17,22 +17,17 @@ isTruthy (VString _) = True
 isTruthy (VInt 0) = False
 isTruthy (VInt _) = True
 isTruthy (VBool b) = b
-isTruthy (VExitCode Exit.ExitSuccess) = True
-isTruthy (VExitCode _) = False
 isTruthy VNull = False
 isTruthy (VTodo _ _) = False
 isTruthy (VArray _) = True
 isTruthy (VHash _) = True
-isTruthy vp@(VPacket _) = todo "should vpacket be truthy?" vp
+isTruthy (VPacket (VResult Exit.ExitSuccess)) = True
+isTruthy (VPacket (VResult _)) = False
 
 
 toString :: Value -> Value
 toString s@(VString _) = s
 toString v = todo "Not a string" v
-
-v2rv :: Value -> RetVal
-v2rv (VExitCode ec) = VResult ec
-v2rv _ = error "Bad exit code"
 
 b2rv :: Bool -> RetVal
 b2rv b = if b then vsuccess else (vfail (-1))
