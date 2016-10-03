@@ -70,6 +70,7 @@ data Expr =
 -- TODO: separate or combined definitions of Variables or LHS and RHS, and
 -- arrays and hashtables?
 data LValue =   LVar String
+              | LSubscript Expr Expr
               | AnonVar
               deriving (Show, Eq, Read, Data, Typeable)
 

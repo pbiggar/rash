@@ -144,12 +144,22 @@ convertSimpleCommand as ws = listOrExpr (map convertAssign as ++ [convertWords w
 -- TODO: parameter doesn't take subscript
 -- TODO: assignment doesn't handle +=
 convertAssign :: S.Assign -> Expr
-convertAssign (S.Assign (W.Parameter name Nothing) S.Equals (S.RValue r)) =
-  Assignment (LVar name) (convertWord r)
-convertAssign (S.Assign (W.Parameter name Nothing) S.Equals (S.RArray r)) =
-  Assignment (LVar name) (convertRArray r)
+convertAssign (S.Assign l S.Equals r) =
+  Assignment (convertAssignLeft l) (convertAssignRight r)
+convertAssign (S.Assign _ op _) = debugDT "another op" op
 
-convertAssign a = debugT "convertAssign" a
+
+convertAssignLeft :: W.Parameter -> LValue
+convertAssignLeft (W.Parameter name Nothing) = LVar name
+convertAssignLeft (W.Parameter name (Just sub))
+  = LSubscript (Variable name) (convertWord sub)
+
+convertAssignRight :: S.RValue -> Expr
+convertAssignRight (S.RValue r) = convertWord r
+convertAssignRight (S.RArray r) = convertRArray r
+
+
+
 
 convertAssignOrWord :: Either S.Assign W.Word -> Expr
 convertAssignOrWord = either convertAssign convertWord

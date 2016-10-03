@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Rash.Interpreter where
 
 import           Control.Monad.IO.Class    (liftIO)
@@ -128,7 +127,11 @@ evalExpr' (Stdin input expr) = do
 
 evalExpr' Null = return VNull
 evalExpr' (Integer i) = return $ VInt i
-evalExpr' (Str i) = return $ VString i
+evalExpr' (Str s) = return $ VString s
+evalExpr' (Array es) = do
+  as <- mapM evalExpr es
+  return $ VArray as
+
 
 
 evalExpr' e = do
