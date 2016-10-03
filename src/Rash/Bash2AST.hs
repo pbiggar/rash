@@ -258,8 +258,9 @@ convertCondExpr (C.Binary l C.ArithNE r) = Unop Not (Binop (convertWord l) Equal
 convertCondExpr (C.Binary l C.StrLT r) = Binop (convertWord l) LessThan (convertWord r)
 convertCondExpr (C.Binary l C.ArithLT r) = Binop (convertWord l) LessThan (convertWord r)
 convertCondExpr (C.Binary l C.StrGT r) = Binop (convertWord l) GreaterThan (convertWord r)
-convertCondExpr (C.Binary l C.ArithLE r) = Unop Not (Binop (convertWord l) GreaterThan (convertWord r))
-convertCondExpr (C.Binary l C.ArithGE r) = Unop Not (Binop (convertWord l) LessThan (convertWord r))
+convertCondExpr (C.Binary l C.ArithLE r) = Binop (convertWord l) LessThanOrEquals (convertWord r)
+convertCondExpr (C.Binary l C.ArithGT r) = Binop (convertWord l) GreaterThan (convertWord r)
+convertCondExpr (C.Binary l C.ArithGE r) = Binop (convertWord l) GreaterThanOrEquals (convertWord r)
 convertCondExpr (C.Binary l bop r) = fc (bop2FunctionName bop) [convertWord l, convertWord r]
 
 

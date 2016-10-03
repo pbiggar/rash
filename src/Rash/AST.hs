@@ -20,7 +20,8 @@ import           Data.Typeable               ()
 data Program = Program Expr
                deriving (Show, Eq, Read, Data, Typeable)
 
-data BOp = And | Or | Equals | LessThan | GreaterThan
+data BOp = And | Or | Equals
+         | LessThan | GreaterThan | GreaterThanOrEquals | LessThanOrEquals
            deriving (Show, Eq, Read, Data, Typeable)
 data UOp = Not
            deriving (Show, Eq, Read, Data, Typeable)
