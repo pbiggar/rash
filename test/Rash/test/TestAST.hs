@@ -61,7 +61,7 @@ unitTests =
                    (LVar "arg")
                    (Subscript
                      (Variable "sys.argv")
-                     (Integer 1)))
+                     (Integer 0)))
   , testExpected "for i in $@; do nop; done"
                  (For
                    (LVar "i")
@@ -77,7 +77,7 @@ unitTests =
                      "x"
                      [FunctionParameter "arg"]
                      (List [(fc "sys.exit" [Variable "arg"])])))
-  , testExpected "[ -n $2 ]" (Pipe [Subscript (Variable "sys.argv") (Integer 2),
+  , testExpected "[ -n $2 ]" (Pipe [Subscript (Variable "sys.argv") (Integer 1),
                                     fc "string.nonblank?" []])
   , testExpected "[[ $a =~ \"a.b\" ]]"
                  (Pipe [Variable "a", fc "re.matches" [Str "a.b"]])

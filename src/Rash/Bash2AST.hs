@@ -359,6 +359,7 @@ postProcess = transformFixed f
       f (FunctionCall "stdout.writeTo" [Str "/dev/null"]) = fc "stdout.ignore" []
 
       -- TODO write a simple awk parser
+      f (FunctionCall "awk" [Str "{print $0}"]) = fc "string.column" [Integer 0]
       f (FunctionCall "awk" [Str "{print $1}"]) = fc "string.column" [Integer 1]
       f (FunctionCall "awk" [Str "{print $2}"]) = fc "string.column" [Integer 2]
       f (FunctionCall "awk" [Str "{print $3}"]) = fc "string.column" [Integer 3]
@@ -369,6 +370,7 @@ postProcess = transformFixed f
       f (FunctionCall "awk" [Str "{print $8}"]) = fc "string.column" [Integer 8]
       f (FunctionCall "awk" [Str "{print $9}"]) = fc "string.column" [Integer 9]
 
+      f (FunctionCall "awk" [Str "{print $0}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 0]]
       f (FunctionCall "awk" [Str "{print $1}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 1]]
       f (FunctionCall "awk" [Str "{print $2}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 2]]
       f (FunctionCall "awk" [Str "{print $3}", file]) = Pipe [fc "file.read" [file], fc "string.column" [Integer 3]]
@@ -406,7 +408,7 @@ postProcess = transformFixed f
 
       merge a bs = (a:bs)
 
-      convertExitArg (Str v) = Integer (read v :: Int)
+      convertExitArg (Str v) = Integer $ read v
       convertExitArg v = v
 
 
@@ -423,27 +425,34 @@ postProcessGlobals (Program expr) = Program $ postProcessGlobalExpr expr
 
 postProcessGlobalExpr :: Expr -> Expr
 postProcessGlobalExpr fd@(FunctionDefinition _) = fd
-postProcessGlobalExpr e = transformFixed f e
+postProcessGlobalExpr e = transformFixed g $ transformFixed f e
     where
-      -- | Convert $1, $2, etc to sys.argv[1] etc
-      f (Variable "1") = Subscript (Variable "sys.argv") (Integer 1)
-      f (Variable "2") = Subscript (Variable "sys.argv") (Integer 2)
-      f (Variable "3") = Subscript (Variable "sys.argv") (Integer 3)
-      f (Variable "4") = Subscript (Variable "sys.argv") (Integer 4)
-      f (Variable "5") = Subscript (Variable "sys.argv") (Integer 5)
-      f (Variable "6") = Subscript (Variable "sys.argv") (Integer 6)
-      f (Variable "7") = Subscript (Variable "sys.argv") (Integer 7)
-      f (Variable "8") = Subscript (Variable "sys.argv") (Integer 8)
-      f (Variable "9") = Subscript (Variable "sys.argv") (Integer 9)
-      -- | Convert $# to sys.argv.length
-      -- | Convert $@ to sys.argv
-      f (Variable "#") = Pipe [Variable "sys.argv", fc "length" []]
-      f (Variable "@") = Variable "sys.argv"
+      -- | Comparing $# with something should convert to an int
+      f (Binop v@(Variable "#") Equals (Str s)) =
+        Binop v Equals (Integer $ read s)
 
-      f (Binop s@(Subscript (Variable "sys.argv") _) op (Str ""))
-        = (Binop s op Null)
+      -- | Convert $1, $2, etc to sys.argv[0] etc
+      f (Variable "0") = Variable "sys.command"
+      f (Variable "1") = Subscript (Variable "sys.argv") (Integer 0)
+      f (Variable "2") = Subscript (Variable "sys.argv") (Integer 1)
+      f (Variable "3") = Subscript (Variable "sys.argv") (Integer 2)
+      f (Variable "4") = Subscript (Variable "sys.argv") (Integer 3)
+      f (Variable "5") = Subscript (Variable "sys.argv") (Integer 4)
+      f (Variable "6") = Subscript (Variable "sys.argv") (Integer 5)
+      f (Variable "7") = Subscript (Variable "sys.argv") (Integer 6)
+      f (Variable "8") = Subscript (Variable "sys.argv") (Integer 7)
+      f (Variable "9") = Subscript (Variable "sys.argv") (Integer 8)
+
+      f (Binop s@(Subscript (Variable "sys.argv") _) op (Str "")) =
+        (Binop s op Null)
 
       f x = x
+
+      -- | Convert $# to sys.argv.length
+      -- | Convert $@ to sys.argv
+      g (Variable "#") = Pipe [Variable "sys.argv", fc "length" []]
+      g (Variable "@") = Variable "sys.argv"
+      g x = x
 
 
 -- || TODO:
