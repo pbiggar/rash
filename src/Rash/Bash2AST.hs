@@ -16,6 +16,7 @@ import qualified Language.Bash.Word          as W
 import qualified System.IO.Unsafe            as UnsafeIO
 import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
+import qualified Data.Maybe as Maybe
 
 import           Rash.AST
 
@@ -143,13 +144,35 @@ convertSimpleCommand as ws = listOrExpr (map convertAssign as ++ [convertWords w
 -- TODO: parameter doesn't take subscript
 -- TODO: assignment doesn't handle +=
 convertAssign :: S.Assign -> Expr
-convertAssign (S.Assign (W.Parameter name _) S.Equals (S.RValue r)) =
+convertAssign (S.Assign (W.Parameter name Nothing) S.Equals (S.RValue r)) =
   Assignment (LVar name) (convertWord r)
+convertAssign (S.Assign (W.Parameter name Nothing) S.Equals (S.RArray r)) =
+  Assignment (LVar name) (convertRArray r)
 
 convertAssign a = debugT "convertAssign" a
 
 convertAssignOrWord :: Either S.Assign W.Word -> Expr
 convertAssignOrWord = either convertAssign convertWord
+
+
+convertRArray :: [(Maybe W.Word, W.Word)] -> Expr
+convertRArray v = if isHash v || isArray v
+                  then if isHash v
+                       then convertHash v
+                       else convertArray v
+                  else debugDT "mixed hash/array" $ S.RArray v
+
+isHash :: [(Maybe W.Word, W.Word)] -> Bool
+isHash v = and $ map (Maybe.isJust . fst) v
+
+isArray :: [(Maybe W.Word, W.Word)] -> Bool
+isArray v = and $ map (Maybe.isNothing . fst) v
+
+convertHash :: [(Maybe W.Word, W.Word)] -> Expr
+convertHash v = debugDT "hash" $ S.RArray v
+
+convertArray :: [(Maybe W.Word, W.Word)] -> Expr
+convertArray v = Array $ map (convertWord . snd) v
 
 
 -- | WordLists and Words and Spans

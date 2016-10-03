@@ -44,7 +44,10 @@ data Expr =
   -- | Literals
   | Str String
   | Integer Int
+  | Array [Expr]
+  | Hash [(Expr, Expr)]
   | Null
+
   -- | Temporary
   | Debug String
   | Nop
