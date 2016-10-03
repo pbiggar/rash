@@ -234,16 +234,57 @@ instead of bash's
 How do you know whether something should be passed as an argument or via a pipe? Pipes are for data, and arguments are for configuration. For example, `cat` takes data piped into it, but when you specify the filename instead you are giving it configuration.
 
 
+### Redirection, stdin, conditions, exit codes, stderr
+
+Because we're trying to unify a bunch of different things into a single syntax -- pipes -- there's a few problems we run into.
+
+Bash has different syntax for different concepts:
+- stream redirection (`wc > a`, `wc 2&>1`, `wc >/dev/null`) is a property of the command on which it operates
+- timing is too
+- so is backgrounding
+- other pipes (rarely used but there) aswell.
+- condition checks are in their own syntactic world: `if [[ ! -a myfile && -z $x ]]`
+
+We're trying to unify this into a singular concept, but how do we deal with the fact that they're ever so slightly different?
+
+Let's discuss how they're different first.
+
+When you run a command, you take all the commands in the pipelines, create pipes between then, and then run them all. That was, they context switch nicely when each waits for IO, and doesn't explode the memory requirements.
+
+To be concrete, consider `x | y | z`. `y` isn't really given an opportunity to access `x`'s stderr; while `x`'s stdout is pipes into `y`'s stdin, where is `x`'s stderr? Well, it's mapped to the caller's stderr, and is busy writing to it before any data reaches `y`.
+
+Now consider `x 2>/dev/null` vs `x | stderr.ignore`. In the first version, we know when we run `x` that we're sending its stderr to /dev/null. In the second version, how to we know?
+
+There's a similar problem with `time` and `&` (backgrounding) and other pipes. Each uses syntactic constructs to indicate that the function being called is to be treated specially. How do we signal this statically in Rash?
+
+Finally, testing conditions is a little tricky. Bash uses special syntax, eg `[ -a filename ]` to operate on "boolean" values. Commands only sort-of get involved here: `my command; $?` will give you the exit code. Super ugly. But when we try to combine them into one concept, such as `ls | grep $name | uniq | head -n 1 | file.exists?`, how do we know whether to operate on stdout or exit code? In `if (x | file.exists?) == $x`, does equality operate on the exit code, or the stdout? What about in `if ($x | grep mystr) == $somestring`?
+
+For the command syntax, I think the simplest thing is to have some sort of decorator (for the functional crowd, a decorate is a sort of middleware that wraps a function, a kind of limited macro facility). Functions that come later in the pipe can operate on the pipes that lead into them. That way they can change the pipes, wrap it in a testing function, background it, etc.
+
+For the conditions syntax, there's a few options:
+- we could do comparisons on output, then exit codes (if output is equal, check the exit code, or vice-versa)
+- we usually want to exit the program on a bad exit code (eg `set -e` in bash). But sometimes, we don't: grep, file.exists, etc. How do we distinguish these use cases? Usually in the middle of a pipe at least.
+- maybe we want to look at the functions that come after it. If the exit code of grep isn't zero and isn't consumed, then it was probably an error. Throw at run-time (and maybe statically, after a bit of analysis).
+- we could compare strings to stdout, and numbers/bools to exit codes.
+- none of these options are particularly great, tbh.
+
+
+
+
+
+
+
 ## Bash -> Rash translation:
 
 `$@` -> `sys.argv`
 `$#` -> `sys.argv | length`
 `$1` -> `sys.argv[1]`
-`prog > file` -> `prog | fs.save "file"`
+`prog > file` -> `prog | fs.save file`
 `prog < file` -> `fs.read file | prog`
-`[[ $x == "https*" ]]` -> `string.matches? "https.*" $x`
+`[[ $x == "https*" ]]` -> `$x | string.matches? https.*`
 `exit 1` -> `sys.exit 1`
-`type grep` -> `sys.onPath? "grep"`
-`prog1 | prog2` -> `prog1 | suppress | prog2`
-`set -eo pipefail; prog1 | prog2` -> `prog1 -> prog2`
+`type grep` -> `sys.onPath? grep`
+`prog1 | prog2` -> `prog1 | exit.suppress | prog2`
+`set -eo pipefail; prog1 | prog2` -> `prog1 | prog2`
 `$myprog | prog2` -> `exec $myprog | prog2`
+`time x` -> `x | @sys.time`
