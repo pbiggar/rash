@@ -16,9 +16,9 @@ main :: IO ()
 main = do
   Opts.init ["file.rash"]
   pts <- parseTests
-  cts <- codeTests
-  rts <- runTests
-  defaultMain $ testGroup "Tests" [TestAST.tests, pts, cts, rts]
+--  cts <- codeTests
+  --rts <- runTests
+  defaultMain $ testGroup "Tests" [TestAST.tests, pts]
 
 run :: IO a -> IO (String, a)
 run x = do
@@ -38,22 +38,22 @@ testParses file =
       step "check AST"
       either failure checkASTSuccess ast)
 
-testCode :: String -> String -> IO TestTree
-testCode source expectedOutput =
-  return $ testCaseSteps source $ \step -> do
-    step "Run tests"
-    (captured, _) <- run $ Runner.runSource "test_src" source []
-    step "check output"
-    (expectedOutput ++ "\n") @=? captured
+-- testCode :: String -> String -> IO TestTree
+-- testCode source expectedOutput =
+--   return $ testCaseSteps source $ \step -> do
+--     step "Run tests"
+--     (captured, _) <- run $ Runner.runSource "test_src" source []
+--     step "check output"
+--     (expectedOutput ++ "\n") @=? captured
 
-testRuns :: FilePath -> ExitCode -> String -> IO TestTree
-testRuns filename expectedCode expectedOutput =
-  return $ testCaseSteps filename $ \step -> do
-    step "run code"
-    (captured, exitCode) <- run $ Runner.runFile filename
-    step "check output && exit"
-    expectedOutput @=? captured
-    expectedCode @=? exitCode
+-- testRuns :: FilePath -> ExitCode -> String -> IO TestTree
+-- testRuns filename expectedCode expectedOutput =
+--   return $ testCaseSteps filename $ \step -> do
+--     step "run code"
+--     (captured, exitCode) <- run $ Runner.runFile filename
+--     step "check output && exit"
+--     expectedOutput @=? captured
+--     expectedCode @=? exitCode
 
 
 
@@ -69,18 +69,18 @@ parseTests =
        t7 <- testParses "data/nginx.sh"
        return $ testGroup "Parse tests" $ [t1, t2, t3, t7]
 
-codeTests :: IO TestTree
-codeTests = do
-  t1 <- testCode "echo 4" "4"
--- t2 <- testCode "echo $((2 + 2))" "4"
--- t3 <- testCode "die 255"
-  return $ testGroup "code tests" [t1]
+-- codeTests :: IO TestTree
+-- codeTests = do
+--   t1 <- testCode "echo 4" "4"
+-- -- t2 <- testCode "echo $((2 + 2))" "4"
+-- -- t3 <- testCode "die 255"
+--   return $ testGroup "code tests" [t1]
 
-runTests :: IO TestTree
-runTests =
-  do t1 <- testRuns "data/spaceman-diff" ExitSuccess expected1
-     t2 <- testRuns "data/nginx.sh" ExitSuccess expected2
-     return $ testGroup "Run tests" [t1, t2]
-  where
-    expected1 = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modeA fileB shaB modeB\n"
-    expected2 = "Unsupported OS detected, this script will now exit."
+-- runTests :: IO TestTree
+-- runTests =
+--   do t1 <- testRuns "data/spaceman-diff" ExitSuccess expected1
+--      t2 <- testRuns "data/nginx.sh" ExitSuccess expected2
+--      return $ testGroup "Run tests" [t1, t2]
+--   where
+--     expected1 = "  This should normally be called via `git-diff(1)`.\n\n  USAGE:\n    spaceman-diff fileA shaA modeA fileB shaB modeB\n"
+--     expected2 = "Unsupported OS detected, this script will now exit."
