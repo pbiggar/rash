@@ -29,6 +29,10 @@ toString :: Value -> Value
 toString s@(VString _) = s
 toString v = todo "Not a string" v
 
+asString :: Value -> String
+asString (VString s) = s
+asString v = error $ "Not a string: " ++ (show v)
+
 b2rv :: Bool -> RetVal
 b2rv b = if b then vsuccess else (vfail (-1))
 

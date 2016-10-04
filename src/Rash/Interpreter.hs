@@ -73,6 +73,10 @@ evalExpr' (Unop Not e) = do
   res <- evalExpr e
   return $ VBool $ not (Util.isTruthy res)
 
+evalExpr' (Concat exprs) = do
+  vs <- mapM evalExpr exprs
+  return $ VString $ foldl (\a b -> a ++ (Util.asString b)) "" vs
+
 evalExpr' (Variable name) = do
   st <- RT.getSymTable
   return $ fromMaybe VNull $ Map.lookup name st
