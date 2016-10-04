@@ -1,4 +1,4 @@
-module Rash.Interpreter where
+module Rash.Runtime.Interpreter where
 
 import           Control.Monad.IO.Class    (liftIO)
 import qualified Control.Monad.Trans.State as State
@@ -8,12 +8,12 @@ import qualified GHC.IO.Handle             as Handle
 import qualified System.IO                 as IO
 import qualified System.Process            as Proc
 
-import           Rash.AST
-import           Rash.Builtins             as Builtins
+import           Rash.IR.AST
+import           Rash.Runtime.Builtins             as Builtins
 import           Rash.Debug
-import qualified Rash.Process              as Process
-import qualified Rash.Runtime              as RT
-import           Rash.RuntimeTypes
+import qualified Rash.Runtime.Process              as Process
+import qualified Rash.Runtime.Runtime              as RT
+import           Rash.Runtime.Types
 import qualified Rash.Util                 as Util
 
 

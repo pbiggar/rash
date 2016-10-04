@@ -1,11 +1,11 @@
-module Rash.RuntimeTypes where
+module Rash.Runtime.Types where
 
 import qualified Data.Map.Strict           as Map
 import qualified System.Exit               as Exit
 import qualified Control.Monad.Trans.State as State
 import qualified GHC.IO.Handle             as Handle
 
-import Rash.AST
+import Rash.IR.AST
 
 data Value = VInt Int
            | VString String

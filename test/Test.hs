@@ -1,8 +1,7 @@
 module Main (main) where
 
 import           Data.Generics.Uniplate.Operations
-import qualified Rash.AST                          as AST
-import qualified Rash.Bash2AST                     as Bash2AST
+import qualified Rash.IR.AST                          as AST
 import qualified Rash.Options                      as Opts
 import qualified Rash.Runner                       as Runner
 import qualified Rash.Test.TestAST                 as TestAST
@@ -34,7 +33,7 @@ testParses file =
     return (testCaseSteps file $ \step -> do
       step "parse code"
       src <- readFile file
-      let ast = Bash2AST.translate "test" src
+      let ast = Runner.translate "test" src
       step "check AST"
       either failure checkASTSuccess ast)
 

@@ -1,4 +1,4 @@
-module Rash.Runner (runSource, runFile, evalAndPrint, checkSyntax) where
+module Rash.Runner ( runSource, runFile, evalAndPrint, checkSyntax, translate ) where
 
 import           Control.Exception   (catch, fromException, SomeException)
 import           Control.Monad       (liftM, when)
@@ -6,19 +6,21 @@ import qualified Data.Either         as Either
 import qualified Data.Maybe          as Maybe
 import qualified System.Exit         as Exit
 import qualified Text.Groom          as G
+import qualified Text.Parsec.Error
 
 import qualified Language.Bash.Parse as BashParse
 
-import           Rash.AST
-import qualified Rash.Bash2AST       as Bash2AST
-import qualified Rash.Interpreter    as Interpreter
+import           Rash.IR.AST as AST
+import qualified Rash.IR.Bash2Rough       as Bash2Rough
+import qualified Rash.IR.Rough2AST       as Rough2AST
+import qualified Rash.Runtime.Interpreter    as Interpreter
 import qualified Rash.Options        as Opts
-import           Rash.RuntimeTypes
+import           Rash.Runtime.Types
 
 
 evalAndPrint :: String -> String -> IO ()
 evalAndPrint name source = do
-  result <- case (Bash2AST.translate name source) of
+  result <- case translate name source of
     Left err -> return . show $ err
     Right prog -> Interpreter.interpret prog [] >>= return . show
   putStrLn result
@@ -27,12 +29,12 @@ evalAndPrint name source = do
 checkSyntax :: String -> String -> IO Exit.ExitCode
 checkSyntax name file = do
   src <- readFile file
+  let ast = translate name src
+  case ast of
+    Left err -> (do putStrLn $ "Error running source: " ++ show err
+                    return $ Exit.ExitFailure (-2))
+    Right _ -> return Exit.ExitSuccess
 
-  Either.either
-    (\err -> (do putStrLn $ "Error running source: " ++ show err
-                 return $ Exit.ExitFailure (-2)))
-    (\_ -> do return $ Exit.ExitSuccess)
-    (Bash2AST.translate name src)
 
 runProgram :: Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
@@ -57,6 +59,10 @@ runProgram program args = do
 
         return code)
 
+translate :: String -> String -> Either Text.Parsec.Error.ParseError AST.Program
+translate name source = do
+  rough <- Bash2Rough.translate name source
+  return $ Rough2AST.lower name rough
 
 
 runSource :: String -> String -> [String] -> IO Exit.ExitCode
@@ -69,7 +75,7 @@ runSource name source args = do
     (\err -> (do putStrLn $ "Error running source: " ++ show err
                  return $ Exit.ExitFailure (-1)))
     (\prog -> do runProgram prog args)
-    (Bash2AST.translate name source)
+    (translate name source)
 
 runFile :: FilePath -> IO Exit.ExitCode
 runFile file = do

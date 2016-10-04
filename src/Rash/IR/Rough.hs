@@ -1,15 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts   #-}
-
-module Rash.AST
-    ( Expr(..)
-    , Program(..)
-    , LValue(..)
-    , FunctionParameter(..)
-    , BOp(..)
-    , UOp(..)
-    , FuncDef(..)
-    ) where
+{-| Description : A general version of the Bash AST -}
+module Rash.IR.Rough where
 
 import           Data.Data
 import           Data.Generics.Uniplate.Data ()

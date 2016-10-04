@@ -4,8 +4,8 @@ import           Test.Tasty
 import           Test.Tasty.ExpectedFailure (expectFail)
 import           Test.Tasty.HUnit
 
-import           Rash.AST
-import           Rash.Bash2AST              (translate)
+import           Rash.IR.AST
+import           Rash.Runner            (translate)
 
 tests :: TestTree
 tests = testGroup "AST tests" [unitTests, bugs]

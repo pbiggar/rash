@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Rash.Bash2AST
+module Rash.IR.Bash2Rough
     ( translate
     , convertList
     ) where
@@ -18,7 +18,7 @@ import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
 import qualified Data.Maybe as Maybe
 
-import           Rash.AST
+import           Rash.IR.AST
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
@@ -559,7 +559,6 @@ parseString2Word s =
       Right word -> word
 
 translate :: String -> String -> Either ParseError Program
-translate name source =
-    case BashParse.parse name source of
-      Left err -> Left err
-      Right ans -> Right $ postProcess $ postProcessGlobals $ Program $ convertList ans
+translate name source = do
+  rough <- BashParse.parse name source
+  Right $ postProcess $ postProcessGlobals $ Program $ convertList rough

@@ -1,9 +1,9 @@
-module Rash.Runtime where
+module Rash.Runtime.Runtime where
 
 import qualified Control.Monad.Trans.State as State
 import qualified GHC.IO.Handle             as Handle
 
-import           Rash.RuntimeTypes
+import           Rash.Runtime.Types
 
 
 getState :: WithState IState

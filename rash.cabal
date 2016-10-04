@@ -17,17 +17,19 @@ library
   hs-source-dirs:      src
   ghc-options:         -Wall -threaded
   exposed-modules:
-                       Rash.AST
-                     , Rash.Bash2AST
-                     , Rash.Builtins
-                     , Rash.Debug
-                     , Rash.Interpreter
+                       Rash.Debug
+                     , Rash.IR.AST
+                     , Rash.IR.Bash2Rough
+                     , Rash.IR.Rough
+                     , Rash.IR.Rough2AST
                      , Rash.Options
-                     , Rash.Process
                      , Rash.Repl
                      , Rash.Runner
-                     , Rash.Runtime
-                     , Rash.RuntimeTypes
+                     , Rash.Runtime.Builtins
+                     , Rash.Runtime.Interpreter
+                     , Rash.Runtime.Process
+                     , Rash.Runtime.Runtime
+                     , Rash.Runtime.Types
                      , Rash.Util
   build-depends:       async
                      , base

@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Rash.Process where
+module Rash.Runtime.Process where
 
 import qualified Control.Concurrent.Async  as Async
 import           Control.Exception         (throw, try)
@@ -15,10 +15,10 @@ import qualified GHC.IO.Handle             as Handle
 import qualified System.Process            as Proc
 
 
-import           Rash.AST
+import           Rash.IR.AST
 import           Rash.Debug
-import qualified Rash.Runtime              as RT
-import           Rash.RuntimeTypes
+import qualified Rash.Runtime.Runtime              as RT
+import           Rash.Runtime.Types
 import           Rash.Util
 
 

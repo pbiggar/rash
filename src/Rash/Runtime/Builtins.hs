@@ -1,4 +1,4 @@
-module Rash.Builtins where
+module Rash.Runtime.Builtins where
 
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict        as Map
@@ -7,9 +7,8 @@ import qualified System.IO as IO
 import qualified System.Directory as Dir
 
 import           Rash.Debug
-import           Rash.RuntimeTypes
-import qualified Rash.Runtime           as RT
-
+import           Rash.Runtime.Types
+import qualified Rash.Runtime.Runtime           as RT
 import qualified Rash.Util              as Util
 
 

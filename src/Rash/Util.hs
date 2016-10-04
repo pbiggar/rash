@@ -2,7 +2,7 @@ module Rash.Util where
 
 import qualified System.Exit as Exit
 
-import Rash.RuntimeTypes
+import Rash.Runtime.Types
 import Rash.Debug
 
 
