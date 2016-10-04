@@ -10,7 +10,7 @@ import qualified Text.Parsec.Error
 
 import qualified Language.Bash.Parse as BashParse
 
-import           Rash.IR.AST as AST
+import qualified Rash.IR.AST as AST
 import qualified Rash.IR.Bash2Rough       as Bash2Rough
 import qualified Rash.IR.Rough2AST       as Rough2AST
 import qualified Rash.Runtime.Interpreter    as Interpreter
@@ -36,7 +36,7 @@ checkSyntax name file = do
     Right _ -> return Exit.ExitSuccess
 
 
-runProgram :: Program -> [String] -> IO Exit.ExitCode
+runProgram :: AST.Program -> [String] -> IO Exit.ExitCode
 runProgram program args = do
   when (Opts.debugAST Opts.flags) $ do
     putStrLn "AST:"

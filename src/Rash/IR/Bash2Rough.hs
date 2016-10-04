@@ -18,7 +18,7 @@ import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
 import qualified Data.Maybe as Maybe
 
-import           Rash.IR.AST
+import           Rash.IR.Rough
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
