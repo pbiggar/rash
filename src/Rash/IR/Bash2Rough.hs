@@ -6,6 +6,7 @@ module Rash.IR.Bash2Rough
 
 import qualified Data.Data
 import           Data.Generics.Uniplate.Data (rewriteBi)
+import qualified Data.Maybe                  as Maybe
 import qualified Data.Typeable               as Typeable
 import qualified Language.Bash.Cond          as C
 import qualified Language.Bash.Parse         as BashParse
@@ -13,20 +14,21 @@ import qualified Language.Bash.Parse.Word
 import qualified Language.Bash.Pretty        as BashPretty
 import qualified Language.Bash.Syntax        as S
 import qualified Language.Bash.Word          as W
-import qualified System.IO.Unsafe            as UnsafeIO
+import qualified Text.Groom               as G
+
 import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
-import qualified Data.Maybe as Maybe
 
 import           Rash.IR.Rough
+import qualified Rash.Util as Util
+import qualified Rash.Options                as Opts
 
 -- | Debugging
 debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
 debugStr msg x = "TODO (" ++ msg ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
 
 debug :: (Show a, BashPretty.Pretty a) => String -> a -> b
-debug msg x = UnsafeIO.unsafePerformIO $ do
-  error $ msg ++ " -> " ++ (show x)
+debug msg x = error $ msg ++ " -> " ++ (show x)
 
 debugD :: (Show a, BashPretty.Pretty a) => String -> a -> Expr
 debugD msg x = Debug (debugStr msg  x)
@@ -558,7 +560,16 @@ parseString2Word s =
       Left err -> error ("nested parse of " ++ s ++ " failed: " ++ show err)
       Right word -> word
 
+printPT :: S.List -> String
+printPT pt =
+  if (Opts.debugRough Opts.flags)
+  then "Bash parse tree: \n" ++ (G.groom pt)
+  else ""
+
 translate :: String -> String -> Either ParseError Program
 translate name source = do
-  rough <- BashParse.parse name source
-  Right $ postProcess $ postProcessGlobals $ Program $ convertList rough
+  pt <- BashParse.parse name source
+
+  Util.traceM $ printPT pt
+
+  Right $ postProcess $ postProcessGlobals $ Program $ convertList pt

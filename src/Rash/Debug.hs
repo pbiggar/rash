@@ -18,4 +18,4 @@ debug msg obj = do
 
 debugIO :: Show a => String -> a -> IO ()
 debugIO msg obj = do
-  when (Opts.debugAll Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show obj
+  when (Opts.debugOther Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show obj

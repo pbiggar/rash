@@ -1,6 +1,7 @@
 module Rash.Util where
 
 import qualified System.Exit as Exit
+import qualified System.IO.Unsafe    as Unsafe
 
 import Rash.Runtime.Types
 import Rash.Debug
@@ -43,3 +44,10 @@ exit2int (Exit.ExitFailure i) = i
 int2exit :: Int -> Exit.ExitCode
 int2exit 0 = Exit.ExitSuccess
 int2exit i = Exit.ExitFailure i
+
+trace :: String -> a -> a
+trace msg a = Unsafe.unsafePerformIO $ do putStr msg
+                                          return a
+
+traceM :: (Applicative f) => String -> f ()
+traceM msg = trace msg $ pure ()
