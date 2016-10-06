@@ -139,8 +139,8 @@ runFunction (UserDefined (FuncDef _ params body))
                    (zip params args)
   let newState = state { frame_ = Frame st handles }
 
-  val <- State.evalStateT (evalExpr body) newState
-  return $ b2rv . isTruthy $ val
+  val <- State.evalStateT (mapM evalExpr body) newState
+  return $ b2rv . isTruthy $ (last val)
 
 runFunction (Builtin fn) args handles state _ = do
   let newState = state { frame_ = Frame Map.empty handles }

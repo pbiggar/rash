@@ -19,21 +19,22 @@ import qualified Rash.Util                 as Util
 
 
 interpret :: Program -> [String] -> IO Value
-interpret (Program expr) args = do
+interpret (Program exprs) args = do
   let st = Map.insert "sys.argv" (VArray (map VString args)) Map.empty
   let ft = Builtins.builtins
   let hs = Handles IO.stdin IO.stdout IO.stderr
   let state = IState (Frame st hs) ft
-  (val, final) <- State.runStateT (evalExpr expr) state
+  (val, final) <- State.runStateT (evalExprs exprs) state
   debugIO "Final state" final
   return val
 
+evalExprs :: [Expr] -> WithState Value
+evalExprs es = do
+  liftIO $ debugIO ("executing a list with " ++ (show (length es)) ++ " exprs") ()
+  evaled <- mapM evalExpr es
+  return (last evaled)
 
 evalExpr :: Expr -> WithState Value
-evalExpr e@(List es) = do
-  liftIO $ debugIO ("executing a list with " ++ (show (length es)) ++ " exprs") ()
-  evalExpr' e
-
 evalExpr e = do
   liftIO $ debugIO "executing: " e
   v <- evalExpr' e
@@ -42,10 +43,6 @@ evalExpr e = do
   return v
 
 evalExpr' :: Expr -> WithState Value
-evalExpr' (List es) = do
-  result <- mapM evalExpr es
-  return $ last result
-
 evalExpr' Nop = return VNull
 
 evalExpr' (FunctionDefinition fd@(FuncDef name _ _)) = do
@@ -54,7 +51,7 @@ evalExpr' (FunctionDefinition fd@(FuncDef name _ _)) = do
 
 evalExpr' (If cond then' else') = do
   condVal <- evalExpr cond
-  if Util.isTruthy condVal then evalExpr then' else evalExpr else'
+  if Util.isTruthy condVal then evalExprs then' else evalExprs else'
 
 evalExpr' (Binop l Equals r) = do
   lval <- evalExpr l
@@ -100,32 +97,18 @@ evalExpr' (Assignment (LVar name) e) = do
 -- Function calls and pipes
 ------------------------------------------------
 
-evalExpr' f@(FunctionCall _ _) =
-  evalExpr' (Pipe [f])
-
-evalExpr' (Pipe exprs@(FunctionCall _ _:_)) = do
-  stdin <- RT.getStdin
-  evalPipe exprs stdin
-
-evalExpr' (Pipe (expr : exprs)) =
-  evalExpr $ Stdin expr (Pipe exprs)
-
-evalExpr' (Pipe exprs) = do
-  stdin <- RT.getStdin
-  evalPipe exprs stdin
-
-evalExpr' (Stdin input (Pipe exprs)) = do
+evalExpr' (Pipe (Stdin input) fns) = do
   inputStr <- eval2Str input
   (r,w) <- liftIO $ Proc.createPipe
   liftIO $ IO.hPutStr w inputStr
 
-  result <- evalPipe exprs r
+  result <- evalPipe fns r
   liftIO $ IO.hClose r
   return result
 
-evalExpr' (Stdin input expr) = do
-  evalExpr (Stdin input (Pipe [expr]))
-
+evalExpr' (Pipe NoStdin fns) = do
+  stdin <- RT.getStdin
+  evalPipe fns stdin
 
 
 
@@ -147,12 +130,12 @@ eval2Str e = do
     let (VString str) = Util.toString expr
     return str
 
-evalPipe :: [Expr] -> Handle.Handle -> WithState Value
-evalPipe exprs stdin = do
-  commands <- mapM evalArgs exprs
+evalPipe :: [FunctionCall] -> Handle.Handle -> WithState Value
+evalPipe fns stdin = do
+  commands <- mapM evalArgs fns
   Process.evalPipe commands stdin evalExpr
   where
-    evalArgs (FunctionCall name args) = do
+    evalArgs (Fn name args) = do
       args2 <- mapM evalExpr args
       return (name, args2)
     evalArgs e = todo "how do we invoke non-FunctionInvocations" e

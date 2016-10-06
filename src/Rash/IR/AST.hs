@@ -10,25 +10,25 @@ import           Data.Typeable               ()
 
 
 -- | The AST definition
-data Program = Program Expr
+data Program = Program [Expr]
                deriving (Show, Eq, Read, Data, Typeable)
 
 data BOp = And | Or | Equals
          | LessThan | GreaterThan | GreaterThanOrEquals | LessThanOrEquals
            deriving (Show, Eq, Read, Data, Typeable)
+
 data UOp = Not
            deriving (Show, Eq, Read, Data, Typeable)
 
-data FuncDef = FuncDef String [FunctionParameter] Expr
+data FuncDef = FuncDef String [FunctionParameter] [Expr]
                deriving (Show, Eq, Read, Data, Typeable)
 
 data Expr =
 
   -- | Control flow
-    For LValue Expr Expr -- TODO: better to pipe into a for loop?
-  | If Expr Expr Expr
-  | Pipe [Expr]
-  | List [Expr] -- the last one is the true value
+    For LValue Expr [Expr]
+  | If Expr [Expr] [Expr]
+  | Pipe Stdin [FunctionCall]
 
   -- | Operators
   | Binop Expr BOp Expr
@@ -47,12 +47,7 @@ data Expr =
   | Nop
 
   -- | Functions
-  | FunctionCall String [Expr]
-  | IndirectFunctionCall Expr [Expr]
-  | Exec String
-
   | FunctionDefinition FuncDef
-  | Stdin Expr Expr
 
   -- | Storage
   | Variable String
@@ -66,7 +61,19 @@ data Expr =
 data LValue =   LVar String
               | LSubscript Expr Expr
               | AnonVar
-              deriving (Show, Eq, Read, Data, Typeable)
+  deriving (Show, Eq, Read, Data, Typeable)
+
+data FunctionCall  = Fn String [Expr]
+                   | IndirectFn Expr [Expr]
+                   | Exec String
+                   | Lambda [Expr]
+  deriving (Show, Eq, Read, Data, Typeable)
+
+data Stdin = Stdin Expr
+           | NoStdin
+  deriving (Show, Eq, Read, Data, Typeable)
+
+
 
 data FunctionParameter = FunctionParameter String
                          deriving (Show, Eq, Read, Data, Typeable)
