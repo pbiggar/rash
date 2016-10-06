@@ -1,21 +1,27 @@
 module Rash.Debug where
 
-import           Control.Monad    (when)
-import qualified System.IO.Unsafe as Unsafe
+import Debug.Trace as Trace
 import qualified Text.Groom          as G
 
-import qualified Rash.Options     as Opts
+import qualified Rash.Options as Opts
 
-todo :: Show a => String -> a -> r
-todo msg obj = do
-  error $ "TODO (" ++ msg ++ "):\n " ++ (G.groom obj)
+die :: Show a => String -> String -> a -> r
+die ns msg obj = do
+  error $ "[" ++ ns ++ "] " ++ msg ++ "):\n " ++ (G.groom obj)
 
+traceTmpl :: Show a => String -> String -> a -> a
+traceTmpl ns msg obj =
+  if Opts.debugP ns Opts.flags then
+    Trace.trace (msg ++ show obj) obj
+  else
+    obj
 
-{-# NOINLINE debug #-}
-debug :: Show a => String -> a -> ()
-debug msg obj = do
-  Unsafe.unsafePerformIO $ debugIO msg obj
+traceMTmpl :: (Show a, Applicative f) => String -> String -> a -> f a
+traceMTmpl ns msg obj = pure $ traceTmpl ns msg obj
 
-debugIO :: Show a => String -> a -> IO ()
-debugIO msg obj = do
-  when (Opts.debugOther Opts.flags) $ putStrLn $ "DEBUG (" ++ msg ++ "): " ++ show obj
+groom :: (Show a) => String -> String -> a -> a
+groom ns msg obj =
+  if Opts.debugP ns Opts.flags then
+    Trace.trace (msg ++ ":\n" ++ G.groom obj) obj
+  else
+    obj

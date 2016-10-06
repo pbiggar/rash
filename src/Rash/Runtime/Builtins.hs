@@ -1,4 +1,4 @@
-module Rash.Runtime.Builtins where
+module Rash.Runtime.Builtins (builtins) where
 
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict        as Map
@@ -6,12 +6,13 @@ import qualified System.Exit
 import qualified System.IO as IO
 import qualified System.Directory as Dir
 
-import           Rash.Debug
+import qualified Rash.Debug as Debug
 import           Rash.Runtime.Types
 import qualified Rash.Runtime.Runtime           as RT
 import qualified Rash.Util              as Util
 
-
+die :: String -> [Value] -> r
+die = Debug.die "builtins"
 
 builtins :: Map.Map String Function
 builtins = m3
@@ -28,17 +29,17 @@ sysExit [] = sysExit [VInt 0]
 sysExit [code] = do
   _ <- liftIO $ System.Exit.exitWith $ Util.int2exit $ RT.v2int code
   return vsuccess
-sysExit a = todo "todo types" a
+sysExit a = die "todo types" a
 
 length_ :: BuiltinFunction
-length_ a@[] = todo "empty length" a
+length_ a@[] = die "empty length" a
 length_ [VString s] = do
   liftIO $ print $ length s
   return vsuccess
 length_ [VArray s] = do
   liftIO $ print $ length s
   return vsuccess
-length_ a = todo "length should support more types" a
+length_ a = die "length should support more types" a
 
 fileExists :: BuiltinFunction
 fileExists _ = do

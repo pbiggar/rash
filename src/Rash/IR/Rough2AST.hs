@@ -3,8 +3,14 @@
 module Rash.IR.Rough2AST
     ( lower ) where
 
+import qualified Data.Typeable               as Typeable
 import qualified Rash.IR.Rough as R
 import qualified Rash.IR.AST as A
+
+
+debug :: (Show a, Typeable.Typeable a)  => String -> a -> b
+debug msg x =
+  error $ "[R2A] " ++ msg ++ " -> [" ++ (show $ Typeable.typeOf x) ++ "]" ++ (show x)
 
 
 
@@ -68,7 +74,7 @@ lower _ source = fprog source
        where first = f fn -- this converts our various Fns into Pipes, and leaves expr as is
              others = (map mustBeAFn fns)
 
-    f (R.Pipe []) = error "empty pipeline"
+    f p@(R.Pipe []) = debug "empty pipeline" p
 
 
     mustBeAFn :: R.Expr -> A.FunctionCall
@@ -81,7 +87,7 @@ lower _ source = fprog source
     mustBeAFn (R.List es) =
       A.Lambda $ fes es
 
-    mustBeAFn expr = error $ "this has to be a function: " ++ (show expr)
+    mustBeAFn expr = debug "expected function" expr
 
     fl :: R.Expr -> [A.Expr]
     fl (R.List es) = fes es

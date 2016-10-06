@@ -14,32 +14,18 @@ import qualified Language.Bash.Parse.Word
 import qualified Language.Bash.Pretty        as BashPretty
 import qualified Language.Bash.Syntax        as S
 import qualified Language.Bash.Word          as W
-import qualified System.IO.Unsafe            as UnsafeIO
-import qualified Text.Groom               as G
-
 import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
 
-import qualified Rash.Util as Util
 import           Rash.IR.Rough
-import qualified Rash.Options                as Opts
+import qualified Rash.Debug                  as Debug
 
--- | Debugging
-debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
-debugStr msg x = "TODO (" ++ msg ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
+die :: (Show a, BashPretty.Pretty a) => String -> a -> b
+die msg a = Debug.die "B2R" msg a
 
-debug :: (Show a, BashPretty.Pretty a) => String -> a -> b
-debug msg x = UnsafeIO.unsafePerformIO $ do
-  error $ msg ++ " -> " ++ (show x)
+dieT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> b
+dieT msg x = die (msg ++ " [" ++ (show $ Typeable.typeOf x) ++ "]") x
 
-debugD :: (Show a, BashPretty.Pretty a) => String -> a -> Expr
-debugD msg x = Debug (debugStr msg  x)
-
-debugT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> b
-debugT msg x = debug (msg ++ " " ++ (show $ Typeable.typeOf x)) x
-
-debugDT :: (Show a, Typeable.Typeable a, BashPretty.Pretty a) => String -> a -> Expr
-debugDT msg x = debugD (msg ++ " " ++ (show $ Typeable.typeOf x)) x
 
 fc :: String -> [Expr] -> Expr
 fc = FunctionCall
@@ -101,7 +87,7 @@ convertRedir expr (S.Redir {S.redirDesc=Just(S.IONumber 2)
                           , S.redirTarget=file}) =
    addToPipe expr (fc "stderr.writeTo" [convertWord file])
 
-convertRedir _ r = debugDT "cr" r
+convertRedir _ r = dieT "cr" r
 
 -- | Commands
 convertShellCommand :: S.ShellCommand -> Expr
@@ -122,7 +108,7 @@ convertShellCommand (S.SimpleCommand as ws) =
 
 convertShellCommand (S.AssignBuiltin w es)
     | w == W.fromString "local" = listOrExpr (map convertAssignOrWord es)
-    | otherwise = debugDT "ccscab" w
+    | otherwise = dieT "ccscab" w
 
 convertShellCommand (S.Cond e) = convertCondExpr e
 convertShellCommand (S.FunctionDef name cmds) =
@@ -137,7 +123,7 @@ convertShellCommand (S.While expr cmds) =
 convertShellCommand (S.Group list) =
     convertList list
 
-convertShellCommand x = debugDT "cc" x
+convertShellCommand x = dieT "cc" x
 
 
 -- | SimpleCommands (assignments)
@@ -150,7 +136,7 @@ convertSimpleCommand as ws = listOrExpr (map convertAssign as ++ [convertWords w
 convertAssign :: S.Assign -> Expr
 convertAssign (S.Assign l S.Equals r) =
   Assignment (convertAssignLeft l) (convertAssignRight r)
-convertAssign (S.Assign _ op _) = debugDT "another op" op
+convertAssign (S.Assign _ op _) = dieT "another op" op
 
 
 convertAssignLeft :: W.Parameter -> LValue
@@ -174,7 +160,7 @@ convertRArray v = if isHash v || isArray v
                   then if isHash v
                        then convertHash v
                        else convertArray v
-                  else debugDT "mixed hash/array" $ S.RArray v
+                  else dieT "mixed hash/array" $ S.RArray v
 
 isHash :: [(Maybe W.Word, W.Word)] -> Bool
 isHash v = and $ map (Maybe.isJust . fst) v
@@ -183,7 +169,7 @@ isArray :: [(Maybe W.Word, W.Word)] -> Bool
 isArray v = and $ map (Maybe.isNothing . fst) v
 
 convertHash :: [(Maybe W.Word, W.Word)] -> Expr
-convertHash v = debugDT "hash" $ S.RArray v
+convertHash v = dieT "hash" $ S.RArray v
 
 convertArray :: [(Maybe W.Word, W.Word)] -> Expr
 convertArray v = Array $ map (convertWord . snd) v
@@ -198,9 +184,9 @@ convertWordList (S.WordList wl) = listOrExpr (map convertWord wl)
 convertWords :: [W.Word] -> Expr
 convertWords ([W.Char '['] : ws)
     | (convertString . last $ ws) == "]" = convertTest . init $ ws
-    | otherwise = debugDT "cw" ws
+    | otherwise = dieT "cw" ws
 convertWords (w:ws) = convertFunctionCall (convertWord w) (map convertWord ws)
-convertWords ws@[] = debugT "cwEmpty" ws
+convertWords ws@[] = dieT "cwEmpty" ws
 
 convertWord :: W.Word -> Expr
 convertWord ss = cConcat [convertSpan s | s <- ss]
@@ -235,13 +221,13 @@ convertSpan (W.ParamSubst W.Delete {W.indirect = False
 convertSpan (W.Backquote w) = parseWord w
 
 
-convertSpan w = debugDT "cs" w
+convertSpan w = dieT "cs" w
 
 -- like convertWord but we expect a string
 convertString :: W.Word -> String
 convertString w = case convertWord w of
                     Str s -> s
-                    _ -> debug "not a string" w
+                    _ -> die "not a string" w
 
 -- | Functions
 convertFunctionCall :: Expr -> [Expr] -> Expr
@@ -274,7 +260,7 @@ bop2FunctionName C.SameFile = "file.same?"
 bop2FunctionName C.NewerThan = "file.newer_than?"
 bop2FunctionName C.OlderThan = "file.older_than?"
 bop2FunctionName C.StrMatch = "re.matches"
-bop2FunctionName x = debugT "binop" x
+bop2FunctionName x = dieT "binop" x
 
 -- | Function names for UnaryOps
 uop2FunctionName :: C.UnaryOp -> String
@@ -299,7 +285,7 @@ uop2FunctionName C.UserOwned = "file.isUserOwned"
 uop2FunctionName C.Socket = "file.isSocket"
 uop2FunctionName C.ZeroString = "string.blank?"
 uop2FunctionName C.NonzeroString = "string.nonblank?"
-uop2FunctionName a = debug "uop2FunctionName" a
+uop2FunctionName a = die "uop2FunctionName" a
 -- TODO: these ones are a bit odd
 -- uop2FunctionName C.Optname =
 -- uop2FunctionName C.Varname =
@@ -562,16 +548,10 @@ parseString2Word s =
       Left err -> error ("nested parse of " ++ s ++ " failed: " ++ show err)
       Right word -> word
 
-printPT :: S.List -> String
-printPT pt =
-  if (Opts.debugPT Opts.flags)
-  then "Bash parse tree: \n" ++ (G.groom pt) ++ "\n\n"
-  else ""
-
 translate :: String -> String -> Either ParseError Program
 translate name source = do
   pt <- BashParse.parse name source
 
-  Util.traceM $ printPT pt
+  let _ = Debug.groom "pt" "Bash parse tree" pt
 
   Right $ postProcess $ postProcessGlobals $ Program $ convertList pt

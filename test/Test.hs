@@ -1,11 +1,10 @@
 module Main (main) where
 
 import           Data.Generics.Uniplate.Operations
-import qualified Rash.IR.AST                          as AST
+import qualified Rash.IR.AST                       as AST
 import qualified Rash.Options                      as Opts
 import qualified Rash.Runner                       as Runner
 import qualified Rash.Test.TestAST                 as TestAST
-import           System.Exit
 import qualified System.IO.Silently                as Silently
 import           Test.Tasty
 import           Test.Tasty.HUnit

@@ -16,11 +16,13 @@ import qualified System.Process            as Proc
 
 
 import           Rash.IR.AST
-import           Rash.Debug
+import qualified Rash.Debug as Debug
 import qualified Rash.Runtime.Runtime              as RT
 import           Rash.Runtime.Types
 import           Rash.Util
 
+die :: String -> Value -> r
+die = Debug.die "proc"
 
 handleForString :: String -> IO Handle.Handle
 handleForString s = do
@@ -103,7 +105,7 @@ waitForProcess (DeferredException e) = do
 value2ProcString :: Value -> String
 value2ProcString (VString s) = s
 value2ProcString (VInt i) = show i
-value2ProcString x = todo "valueToProcString" x
+value2ProcString x = die "valueToProcString" x
 
 
 createBackgroundProc :: String -> [Value] -> Handles -> IO Process

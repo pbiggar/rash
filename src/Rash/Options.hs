@@ -14,16 +14,8 @@ data Opts = Opts
   , files       :: [String]
   } deriving (Show)
 
-debugPT :: Opts -> Bool
-debugPT = isInfixOf "pt" . debug
-debugRough :: Opts -> Bool
-debugRough = isInfixOf "rough" . debug
-debugAST :: Opts -> Bool
-debugAST = isInfixOf "ast" . debug
-debugExe :: Opts -> Bool
-debugExe = isInfixOf "exe" . debug
-debugOther :: Opts -> Bool
-debugOther = isInfixOf "other" . debug
+debugP :: String -> Opts -> Bool
+debugP prefix opts = isInfixOf prefix (debug opts)
 
 flagsDesc :: Parser Opts
 flagsDesc = Opts

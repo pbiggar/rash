@@ -5,7 +5,6 @@ import qualified GHC.IO.Handle             as Handle
 
 import           Rash.Runtime.Types
 
-
 getState :: WithState IState
 getState = State.get
 
