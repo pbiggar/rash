@@ -1,7 +1,7 @@
 # Rash - the Rebourne Again SHell
 
 
-Rash is a shell scripting language intended to replace bash. Its goal is to allow simple, readable, understandable and secure shell scripting. In particular, it aims at the niche currently occupied by Bash programs, and specifically aims to address problems in bash and with bash programs.
+Rash is a shell scripting language intended to replace bash scripts. Its goal is to allow simple, readable, understandable and secure shell scripting. In particular, it aims at the niche currently occupied by Bash programs, and specifically aims to address problems in bash and with bash programs.
 
 In particular, the goal is to make it easy to write 5-500 line scripts that mostly involve string handling, filesystem manipulation, and calling other programs.
 
@@ -94,6 +94,19 @@ rash should
 - to be "pure" in some sense (eg a lovely functional language)
 
 
+## Installation instructions
+
+Rash is written in haskell, using Stack.
+
+To build: `stack build`
+
+To run tests: `stack test`
+
+To run on your own bash scripts: `stack exec rash-exe -- --debug ast mysh.sh`
+
+- this shows you the test output
+
+
 ## Language design
 
 ### The pipe is the fundamental unit
@@ -183,42 +196,6 @@ In bash, often multiple programs are working simultaneously, processing the outp
 
 
 
-## Language notes
-
-- execute external procs with ``
- - returns map
- - stdout and stderr are streams
- - exit code is a promise of a value, will block until execution
- - if operated on using string functions, refers to stdout
-- awk: file.read | string.words 3
-- regex.match returns list of values
-- use pipes liberally for composing functions
-- string functions all work on streams. no non-stream operations
- - warning when something function appears to cause blocking a stream
-- vars start with $ sign
-- statically verify all types
-- true and false types - dont use 0/non-zero
-- proc.success? instead of checking $_ for zero
-- functions receive params as values.
- - string values are really streams with a known input
-- can we prevent globals entirely?
-- exitcode type?
-- should we allow returning values? procs cant do that. Should functions == procs?
- - if we assume there is a return value, how do we choose between stdout and exitcode for procs
-- the whole point of bash is that the executed functions have their stdout output
-- how to put infix functions within a pipe. Maybe \*equal as (==) is not readable.
-- let string, arrays, hashtables, collections, proc and int have methods, which are the same as piping to string.whatever, arguments using ()
-- normally a function returns the output, which then goes into the caller's output, and so on. Do the same here.
-- include analytics and crash reporting so you can see how your program are being use (optional, of course)
-
-
-
-TODO
-++++++++++++++++++++
-- what to do for unset variables?
- - do we want to have a maybe type?
-- translate some scripts
-
 
 ## Design Decisions
 
@@ -271,20 +248,62 @@ For the conditions syntax, there's a few options:
 
 
 
-
-
-
 ## Bash -> Rash translation:
 
 `$@` -> `sys.argv`
+
 `$#` -> `sys.argv | length`
+
 `$1` -> `sys.argv[1]`
+
 `prog > file` -> `prog | fs.save file`
+
 `prog < file` -> `fs.read file | prog`
+
 `[[ $x == "https*" ]]` -> `$x | string.matches? https.*`
+
 `exit 1` -> `sys.exit 1`
+
 `type grep` -> `sys.onPath? grep`
+
 `prog1 | prog2` -> `prog1 | exit.suppress | prog2`
+
 `set -eo pipefail; prog1 | prog2` -> `prog1 | prog2`
+
 `$myprog | prog2` -> `exec $myprog | prog2`
+
 `time x` -> `x | @sys.time`
+
+
+
+
+## Language notes
+
+- execute external procs with ``
+ - returns map
+ - stdout and stderr are streams
+ - exit code is a promise of a value, will block until execution
+ - if operated on using string functions, refers to stdout
+- awk: file.read | string.words 3
+- regex.match returns list of values
+- use pipes liberally for composing functions
+- string functions all work on streams. no non-stream operations
+ - warning when something function appears to cause blocking a stream
+- vars start with $ sign
+- statically verify all types
+- true and false types - dont use 0/non-zero
+- proc.success? instead of checking $_ for zero
+- functions receive params as values.
+ - string values are really streams with a known input
+- can we prevent globals entirely?
+- exitcode type?
+- should we allow returning values? procs cant do that. Should functions == procs?
+ - if we assume there is a return value, how do we choose between stdout and exitcode for procs
+- the whole point of bash is that the executed functions have their stdout output
+- how to put infix functions within a pipe. Maybe \*equal as (==) is not readable.
+- let string, arrays, hashtables, collections, proc and int have methods, which are the same as piping to string.whatever, arguments using ()
+- normally a function returns the output, which then goes into the caller's output, and so on. Do the same here.
+- include analytics and crash reporting so you can see how your program are being use (optional, of course)
+- what to do for unset variables?
+ - do we want to have a maybe type?
+- translate some scripts
