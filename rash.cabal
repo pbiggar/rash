@@ -15,7 +15,6 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -Wall -threaded
   exposed-modules:
                        Rash.Debug
                      , Rash.IR.AST
@@ -44,6 +43,7 @@ library
                      , transformers
                      , uniplate
   default-language:    Haskell2010
+  ghc-options:         -Wall -threaded
 
 executable rash-exe
   hs-source-dirs:      app

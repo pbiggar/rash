@@ -1,5 +1,6 @@
 module Rash.Debug where
 
+import GHC.Stack
 import Debug.Trace as Trace
 import qualified Text.Groom          as G
 
@@ -7,12 +8,12 @@ import qualified Rash.Options as Opts
 
 die :: Show a => String -> String -> a -> r
 die ns msg obj = do
-  error $ "[" ++ ns ++ "] " ++ msg ++ "):\n " ++ (G.groom obj)
+  errorWithStackTrace $ "[" ++ ns ++ "] " ++ msg ++ "):\n " ++ (G.groom obj)
 
 traceTmpl :: Show a => String -> String -> a -> a
 traceTmpl ns msg obj =
   if Opts.debugP ns Opts.flags then
-    Trace.trace (msg ++ show obj) obj
+    Trace.traceStack (msg ++ show obj) obj
   else
     obj
 
