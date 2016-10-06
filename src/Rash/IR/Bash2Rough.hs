@@ -14,13 +14,14 @@ import qualified Language.Bash.Parse.Word
 import qualified Language.Bash.Pretty        as BashPretty
 import qualified Language.Bash.Syntax        as S
 import qualified Language.Bash.Word          as W
+import qualified System.IO.Unsafe            as UnsafeIO
 import qualified Text.Groom               as G
 
 import           Text.Parsec                 (parse)
 import           Text.Parsec.Error           (ParseError)
 
-import           Rash.IR.Rough
 import qualified Rash.Util as Util
+import           Rash.IR.Rough
 import qualified Rash.Options                as Opts
 
 -- | Debugging
@@ -28,7 +29,8 @@ debugStr :: (Show a, BashPretty.Pretty a) => String -> a -> String
 debugStr msg x = "TODO (" ++ msg ++ ") - " ++ BashPretty.prettyText x ++ " - " ++ show x
 
 debug :: (Show a, BashPretty.Pretty a) => String -> a -> b
-debug msg x = error $ msg ++ " -> " ++ (show x)
+debug msg x = UnsafeIO.unsafePerformIO $ do
+  error $ msg ++ " -> " ++ (show x)
 
 debugD :: (Show a, BashPretty.Pretty a) => String -> a -> Expr
 debugD msg x = Debug (debugStr msg  x)
@@ -562,8 +564,8 @@ parseString2Word s =
 
 printPT :: S.List -> String
 printPT pt =
-  if (Opts.debugRough Opts.flags)
-  then "Bash parse tree: \n" ++ (G.groom pt)
+  if (Opts.debugPT Opts.flags)
+  then "Bash parse tree: \n" ++ (G.groom pt) ++ "\n\n"
   else ""
 
 translate :: String -> String -> Either ParseError Program

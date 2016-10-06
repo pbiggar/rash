@@ -30,13 +30,13 @@ evalAndPrint name source = do
 printAST :: AST.Program -> String
 printAST ast =
   if (Opts.debugAST Opts.flags)
-  then "AST:\n" ++ (G.groom ast)
+  then "\nAST:\n" ++ (G.groom ast) ++ "\n\n"
   else ""
 
 printRough :: Rough.Program -> String
 printRough r =
   if (Opts.debugRough Opts.flags)
-  then "Rough: \n" ++ (G.groom r)
+  then "Rough: \n" ++ (G.groom r) ++ "\n\n"
   else ""
 
 
