@@ -13,10 +13,73 @@ build-type:          Simple
 extra-source-files:  README.md, stack.yaml
 cabal-version:       >=1.10
 
-library
-  hs-source-dirs:      src
-  exposed-modules:
-                       Rash.Debug
+-- library
+--   hs-source-dirs:      src
+--   exposed-modules:
+--                        Rash.Debug
+--                      , Rash.IR.AST
+--                      , Rash.IR.Bash2Rough
+--                      , Rash.IR.Rough
+--                      , Rash.IR.Rough2AST
+--                      , Rash.Options
+--                      , Rash.Repl
+--                      , Rash.Runner
+--                      , Rash.Runtime.Builtins
+--                      , Rash.Runtime.Interpreter
+--                      , Rash.Runtime.Process
+--                      , Rash.Runtime.Runtime
+--                      , Rash.Runtime.Types
+--                      , Rash.Util
+--   build-depends:       async
+--                      , base
+--                      , containers
+--                      , directory
+--                      , groom
+--                      , language-bash >= 0.6.2
+--                      , optparse-applicative
+--                      , parsec
+--                      , process >= 1.4.2.0
+--                      , text
+--                      , transformers
+--                      , uniplate
+--   default-language:    Haskell2010
+--   ghc-options:         -Wall -threaded
+
+-- executable rash-exe
+--   hs-source-dirs:      app
+--   main-is:             Main.hs
+--   build-depends:       base
+--                      , rash
+--   default-language:    Haskell2010
+--   ghc-options:         -Wall -threaded
+
+
+-- test-suite rash-test
+--   type:                exitcode-stdio-1.0
+--   hs-source-dirs:      test
+--   main-is:             Test.hs
+--   other-modules:       Rash.Test.TestAST
+--   build-depends:       base
+--                      , rash
+--                      , silently
+--                      , parsec
+--                      , tasty
+--                      , tasty-hunit
+--                      , tasty-expected-failure
+--                      , uniplate
+--   default-language:    Haskell2010
+--   ghc-options:         -Wall -threaded
+
+
+source-repository head
+  type:     git
+  location: https://github.com/pbiggar/rash
+
+
+executable rash-exe
+  hs-source-dirs:      app, src, test
+  main-is:             Main.hs
+  other-modules:       Rash.Debug
                      , Rash.IR.AST
                      , Rash.IR.Bash2Rough
                      , Rash.IR.Rough
@@ -30,8 +93,11 @@ library
                      , Rash.Runtime.Runtime
                      , Rash.Runtime.Types
                      , Rash.Util
-  build-depends:       async
-                     , base
+                     , Rash.Test.TestAST
+                     , Test
+
+  build-depends:       base
+                     , async
                      , containers
                      , directory
                      , groom
@@ -42,35 +108,12 @@ library
                      , text
                      , transformers
                      , uniplate
-  default-language:    Haskell2010
-  ghc-options:         -Wall -threaded
-
-executable rash-exe
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  build-depends:       base
-                     , rash
-  default-language:    Haskell2010
-  ghc-options:         -Wall -threaded
-
-
-test-suite rash-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Test.hs
-  other-modules:       Rash.Test.TestAST
-  build-depends:       base
-                     , rash
                      , silently
                      , parsec
                      , tasty
                      , tasty-hunit
                      , tasty-expected-failure
                      , uniplate
+
   default-language:    Haskell2010
   ghc-options:         -Wall -threaded
-
-
-source-repository head
-  type:     git
-  location: https://github.com/pbiggar/rash

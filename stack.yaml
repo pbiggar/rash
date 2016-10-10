@@ -1,8 +1,8 @@
 resolver: lts-6.18
 
 build:
-  library-profiling: true
-  executable-profiling: true
+#  library-profiling: true
+#  executable-profiling: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
@@ -10,7 +10,7 @@ extra-deps:
   - language-bash-0.6.2
   - process-1.4.2.0
 
-# # Local packages, usually specified by relative directory name
+# Local packages, usually specified by relative directory name
 # packages:
 # - location: '../language-bash'
 #   extra-dep: true

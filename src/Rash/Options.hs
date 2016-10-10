@@ -10,8 +10,9 @@ import           Data.List           (isInfixOf)
 
 data Opts = Opts
   { debug       :: String
-  , checkSyntax :: Bool
+  , runTests    :: Bool
   , files       :: [String]
+  , checkSyntax :: Bool
   } deriving (Show)
 
 debugP :: String -> Opts -> Bool
@@ -24,9 +25,13 @@ flagsDesc = Opts
         <> value "none"
         <> help "Print internal compiler debug output" )
      <*> switch
+         ( long "run-tests"
+        <> help "Run tests" )
+     <*> some (argument str (metavar "FILE"))
+     <*> switch
          ( long "check-syntax"
         <> help "Check syntax and then exit" )
-     <*> some (argument str (metavar "FILE"))
+
 
 optionsDesc :: ParserInfo Opts
 optionsDesc = info (helper <*> flagsDesc)

@@ -2,14 +2,18 @@ module Main where
 
 import           Data.List    (intercalate)
 import qualified System.Exit  as Exit
+import Control.Monad (when)
 
 import qualified Rash.Options as Opts
 import qualified Rash.Repl    as Repl
 import qualified Rash.Runner  as Runner
+import qualified Test as Test
 
 main :: IO ()
 main = do
   exitCode <- do
+    when (Opts.runTests Opts.flags) $ do
+      Test.main
     case Opts.files Opts.flags of
       [] -> do Repl.runRepl
                return $ Exit.ExitSuccess

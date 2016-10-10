@@ -1,26 +1,33 @@
-module Main (main) where
+module Test (main) where
 
+import Control.Exception (catch, SomeException)
 import           Data.Generics.Uniplate.Operations
 import qualified Rash.IR.AST                       as AST
 import qualified Rash.Options                      as Opts
 import qualified Rash.Runner                       as Runner
 import qualified Rash.Test.TestAST                 as TestAST
-import qualified System.IO.Silently                as Silently
+--import qualified System.IO.Silently                as Silently
+import qualified System.Environment as Env
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
 main :: IO ()
-
 main = do
   Opts.init ["file.rash"]
   pts <- parseTests
 --  cts <- codeTests
   --rts <- runTests
-  defaultMain $ testGroup "Tests" [TestAST.tests, pts]
 
-run :: IO a -> IO (String, a)
-run x = do
-  Silently.capture $ x
+  Env.withArgs [] $ do
+    (defaultMain $ testGroup "Tests" [TestAST.tests, pts])
+      `catch` (\e -> do let _ = (e :: SomeException)
+                        return ())
+
+
+
+-- run :: IO a -> IO (String, a)
+-- run x = do
+--   Silently.capture $ x
 
 
 -- | a test that a bash script parses without Debug statements
