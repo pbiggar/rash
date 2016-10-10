@@ -19,7 +19,7 @@ import qualified Rash.Util                 as Util
 debug :: Show a => String -> a -> a
 debug a b = Debug.traceTmpl "exe" a b
 
-debugM :: (Show a, Applicative f) => String -> a -> f a
+debugM :: (Show a, Monad f, Applicative f) => String -> a -> f ()
 debugM a b = Debug.traceMTmpl "exe" a b
 
 die :: Show a => String -> a -> t
@@ -32,7 +32,7 @@ interpret (Program exprs) args = do
   let hs = Handles IO.stdin IO.stdout IO.stderr
   let state = IState (Frame st hs) ft
   (val, final) <- State.runStateT (evalExprs exprs) state
-  _ <- debugM "final state" final
+  debugM "final state" final
   return val
 
 evalExprs :: [Expr] -> WithState Value
